@@ -1,0 +1,40 @@
+
+This is kernel-space part of keymon - keymon Linux Kernel Module (LKM).
+
+keymon LKM doing just a few things:
+1. Registers generic netlink family (and operates on it as a service)
+2. Registers keyboard notifier
+
+Netlink part
+------------
+
+Kernel-space (LKM) and user-space (daemon) communicates over netlink network.
+Generaly speaking there is a netlink socket that LKM uses to send keyboard
+events and daemon uses it to receive keyboard events and register in LKM (see
+below).
+
+In particular LKM registers new generic netlink family "KEYMON" with 2
+operations:
+* KEYMON_C_NOTIFY
+* KEYMON_C_REGISTER
+
+KEYMON_C_NOTIFY command is used to transfer keyboard event in attributed values
+KEYMON_A_KEYCODE, KEYMON_A_KEYTYPE (up or down). 
+
+KEYMON_C_REGISTER command is intended to register daemon in LKM. This is needed
+because LKM sends unicast messages and needs to know daemon PID.  Register uses 
+attributed value KEYMON_A_PID.
+
+NOTE: We do not use multicast because keyboard monitoring is kind of sensitive 
+information and can be used as keylogger, so we don't need any other processes
+to listen on our events. 
+
+There is attribute policy keymon_nla_policy for all of attributes used. This
+policy inform netlink subsytem to do validation of attributes so we don't have
+to care about it.
+
+Keyboard notifier part
+----------------------
+
+This is done via simple Linux kernel API with call to register_keyboard_notifier
+informing Linux kernel to invoke our callback keymon().

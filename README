@@ -1,0 +1,13 @@
+Keymon - keyboard monitor and statistic system.
+
+This nice piece of code is intended to accumulate statistic of how you, my
+friend, are using your keyboard. The big target of this project is to build
+heatmap of keyboard buttons. 
+
+Keymon consists of
+* Keymon Linux kernel module (src/lkm) that receive keyboard notifications from
+  Linux kernel and sends it to daemon
+* Keymon daemon is receiving messages from Keymon LKM and saves it frequency in
+  storage.
+
+It's education project and IS NOT KEYLOGGER.
