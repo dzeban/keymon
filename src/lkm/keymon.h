@@ -1,22 +1,24 @@
 /*
- *	Copyright (C) 2013 Alex Dzyoba <avd@reduct.ru>
+ * Keymon - keyboard monitor and statistic system.
+ * See details on http://reduct.ru/~avd/keymon
  *
- *	This file is part of Keymon.
- *	http://reduct.ru/~avd/keymon
+ * Copyright (C) 2013  Alex Dzyoba <avd@reduct.ru>
  *
- *	Keymon is free software: you can redistribute it and/or modify
- *	it under the terms of the GNU General Public License as published by
- *	the Free Software Foundation, either version 2 of the License, or
- *	(at your option) any later version.
- *	
- *	Keymon is distributed in the hope that it will be useful,
- *	but WITHOUT ANY WARRANTY; without even the implied warranty of
- *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *	GNU General Public License for more details.
- *	
- *	You should have received a copy of the GNU General Public License
- *	along with Keymon.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+ * USA.
+ */
 
 #include <linux/module.h>	/* Needed by all modules */
 #include <linux/kernel.h>	/* Needed for KERN_INFO */
