@@ -69,6 +69,7 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 	// So here we will look only for keycodes of key down events. We don't need
 	// to know about keysym, cause we intersted in physical buttons not symbols.
 	//
+	
 	// param->down can have values 0 for key up, 1 for key down and 2 for key
 	// hold.
 	//
@@ -100,6 +101,60 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 /// @return 0 on success, error code otherwise
 static int keymon_genl_register_cmd( struct sk_buff *skb, struct genl_info *info )
 {
+	unsigned char *data = NULL; // Pointer to data in genetlink message
+	int data_len = 0;           // Lenght of payload in genetlink message
+	u32 pid = 0;
+
+	// --------------------------
+	// Sanity checking
+	// --------------------------
+	if ( !skb )
+	{
+		km_log( "Error: Null pointer sk_buff.\n" );
+		return -ENOMSG;
+	}
+	if( !info )
+	{
+		km_log( "Error: Null pointer genl_info.\n" );
+		return -ENOMSG; 
+	}
+	km_log( "New message: size %d, sender %d, cmd %d\n", info->nlhdr->nlmsg_len,
+                                         info->snd_portid, info->genlhdr->cmd );
+
+	// -----------------------------------------
+	// Get payload data and it's length. 
+	// FIXME: What for? We check attr presense!
+	// ------------------------------------------
+	data_len = genlmsg_len( info->genlhdr );
+	if( !data_len )
+	{
+		km_log( "Error: Zero lenght netlink message data.\n" );
+		return -EBADMSG;
+	}
+
+	data = genlmsg_data( info->genlhdr );
+	if( !data )
+	{
+		km_log( "Error: Null pointer data in genetlink message\n" );
+		return -EBADMSG;
+	}
+	km_log( "Payload: data (%p), length %d\n", data, data_len );
+
+	// ---------------------------------
+	// Get PID attribute value (if any)
+	// ---------------------------------
+	if( info->attrs[ KEYMON_GENL_ATTR_PID ] )
+	{
+		pid = nla_get_u32( info->attrs[ KEYMON_GENL_ATTR_PID ] );
+		if( !pid )
+		{
+			km_log( "Incorrect PID value for REGISTER command\n" );
+			return -EINVAL;
+		}
+
+		km_log( "Got REGISTER command for PID = %d\n", pid );
+	}
+
 	return 0;
 }
 

@@ -20,22 +20,18 @@
  * USA.
  */
 
-#include <linux/module.h>	/* Needed by all modules */
-#include <linux/kernel.h>	/* Needed for KERN_INFO */
-#include <linux/version.h>  /* KERNEL_VERSION macro */
-#include <linux/init.h>		/* Needed for the init macros */
+#include <stdio.h>
+#include <errno.h>
 
-#include <net/netlink.h>    /* Common Netlink API */
-#include <net/genetlink.h>  /* Special Generic Netlink API */
+#include <netlink/netlink.h>
 
-#include <linux/keyboard.h> /* Needed for                   */
-#include <linux/notifier.h> /*            keyboard notifier */
+#include <netlink/genl/genl.h>
+#include <netlink/genl/ctrl.h>
+#include <netlink/genl/family.h>
 
-#define km_log(fmt, args...) printk(KERN_DEBUG "Keymon: In %s:%d. " fmt, __FUNCTION__, __LINE__, ## args)
+#define KEYMON_GENL_FAMILY_NAME "Keymon"
 
-static int keymon_genl_register_cmd( struct sk_buff *skb, struct genl_info *info );
-static int keymon_genl_notify_dump( struct sk_buff *skb, struct netlink_callback *cb );
-static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void *_param );
+#define KEYMON_GENL_VERSION 1
 
 // -----------------------------------------------------------------------------
 // Keymon generic netlink commands.
@@ -75,43 +71,4 @@ enum keymon_genl_attrs {
 // -----------------------------------------------------------------------------
 struct nla_policy keymon_nla_policy[ KEYMON_GENL_ATTR_MAX + 1 ] = {
 	[ KEYMON_GENL_ATTR_PID ] = { .type = NLA_U32 } 
-};
-
-// -----------------------------------------------------------------------------
-// Keymon generic netlink family definition
-// -----------------------------------------------------------------------------
-#define KEYMON_GENL_VERSION 1
-#define KEYMON_GENL_FAMILY_NAME "Keymon"
-struct genl_family keymon_genl_family = {
-	.id      = GENL_ID_GENERATE, // Generate ID 
-	.hdrsize = 0, // No custom header
-	.name    = KEYMON_GENL_FAMILY_NAME,
-	.version = KEYMON_GENL_VERSION,
-	.maxattr = KEYMON_GENL_ATTR_MAX
-};
-
-// -----------------------------------------------------------------------------
-// Keymon generic netlink operations for generic netlink family defined above
-// -----------------------------------------------------------------------------
-struct genl_ops keymon_genl_ops[] = {
-	{
-		.cmd    = KEYMON_GENL_CMD_NOTIFY,
-		.doit   = NULL,
-		.dumpit = keymon_genl_notify_dump, 
-		.policy = keymon_nla_policy
-	},
-	{
-		.cmd    = KEYMON_GENL_CMD_REGISTER,
-		.doit   = keymon_genl_register_cmd,
-		.dumpit = NULL,
-		.policy = keymon_nla_policy
-	}
-};
-
-
-// -----------------------------------------------------------------------------
-// Keyboard notifier
-// -----------------------------------------------------------------------------
-static struct notifier_block keymon_kb_nf = {
-	.notifier_call = keymon_kb_nf_cb
 };

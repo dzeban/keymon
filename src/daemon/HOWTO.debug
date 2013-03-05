@@ -1,0 +1,25 @@
+libnl provides several nice things to help debugging. You should refer to
+official documentation for libnl
+(http://www.carisma.slowglass.com/~tgr/libnl/doc/core.html#_debugging). 
+
+Here I'll briefly talk about it.
+
+There are 2 environment variables, that libnl is know about
+NLDBG - prints debug messages
+NLCB  - dumps netlink messages
+
+So, when you launch keymond like this
+NLDBG=2 NLCB=debug ./keymond
+
+You get a lot of interesting information on stderr
+
+As you may notice, NLDBG has several levels:
+
+------+--------------------------------------------------------
+Level | Description
+------+--------------------------------------------------------
+  0   | Debugging disabled (default) 
+  1   | Warnings, important events and notifications 
+  2   | More or less important debugging messages 
+  3   | Repetitive events causing a flood of debugging messages 
+  4   | Even less important messages
