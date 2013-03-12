@@ -23,6 +23,77 @@
 #include "keymon.h"
 
 //=============================================================================
+//   keymon_send_notification
+//=============================================================================
+/// Sends NOTIFY command over generic netlink socket.
+///
+/// @param param - parameters of notification
+///
+/// * Checks if daemon is present by checking keymond_pid value (set when daemon
+///   sends REGISTER command over netlink socket).
+/// * Constructs netlink message for NOTIFY command (KEYMON_GENL_CMD_NOTIFY)
+/// * Adds notification attribute (KEYMON_GENL_ATTR_NOTIFICATION)
+/// * Sends notification to userspace daemon.
+//
+static void keymon_send_notification( struct keyboard_notifier_param *param )
+{
+	struct sk_buff *skb;
+	void *msg;
+	char notification[256];
+	int rc = 0;
+
+	// ----------------------------------------------
+	// Construct netlink and generic netlink headers
+	// ----------------------------------------------
+	skb = nlmsg_new( NLMSG_GOODSIZE, GFP_KERNEL );
+	if( !skb )
+	{
+		km_log( "Failed to construct message\n" );
+		return;
+	}
+
+	msg = genlmsg_put( skb, 
+	                   keymond_pid, // Netlink portid of receiver
+	                   0,           // Sequence number (don't care)
+	                   &keymon_genl_family,   // Pointer to family struct
+	                   0,                     // Flags
+	                   KEYMON_GENL_CMD_NOTIFY // Generic netlink command 
+	                   );
+	if( !msg )
+	{
+		km_log( "Failed to create generic netlink message\n" );
+		return;
+	}
+
+	// -------------------------------------
+	// Put genetlink NOTIFICATION attribute 
+	// -------------------------------------
+	snprintf(notification, 256, "Down %d, shift %d, ledstate %d, value %u", 
+	param->down, param->shift, param->ledstate, param->value );
+
+	rc = nla_put_string(skb, KEYMON_GENL_ATTR_NOTIFICATION, notification);
+	if( rc )
+	{
+		km_log( "Failed to construct notification. rc = %d\n", rc);
+		return;
+	}
+
+	// --------------------------
+	// Finalize and send message
+	// --------------------------
+	genlmsg_end( skb, msg );
+
+	rc = genlmsg_multicast( skb, 0, keymon_mc_group.id, GFP_KERNEL );
+	if( rc )
+	{
+		km_log( "Failed to send message. rc = %d\n", rc );
+		return;
+	}
+
+	km_log( "Notification successfully sent!\n" );
+}
+
+//=============================================================================
 //   keymon_kb_nf_cb 
 //=============================================================================
 /// Keymon keyboard notifier callback.
@@ -87,75 +158,13 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 	{
 		km_log("Down %d, shift %d, ledstate %d, value %u\n", 
 		param->down, param->shift, param->ledstate, param->value );
+
+		// FIXME: If notification failed we need to do something.
+		keymon_send_notification( param );
+
 	}
 
 	return NOTIFY_DONE;
-}
-
-//=============================================================================
-//   keymon_genl_register_cmd
-//=============================================================================
-/// Handler for REGISTER commmand arrived on netlink socket.
-/// @param skb  - socket buffer
-/// @param info - generic netlink info
-/// @return 0 on success, error code otherwise
-static int keymon_genl_register_cmd( struct sk_buff *skb, struct genl_info *info )
-{
-	unsigned char *data = NULL; // Pointer to data in genetlink message
-	int data_len = 0;           // Lenght of payload in genetlink message
-	u32 pid = 0;
-
-	// --------------------------
-	// Sanity checking
-	// --------------------------
-	if ( !skb )
-	{
-		km_log( "Error: Null pointer sk_buff.\n" );
-		return -ENOMSG;
-	}
-	if( !info )
-	{
-		km_log( "Error: Null pointer genl_info.\n" );
-		return -ENOMSG; 
-	}
-	km_log( "New message: size %d, sender %d, cmd %d\n", info->nlhdr->nlmsg_len,
-                                         info->snd_portid, info->genlhdr->cmd );
-
-	// -----------------------------------------
-	// Get payload data and it's length. 
-	// FIXME: What for? We check attr presense!
-	// ------------------------------------------
-	data_len = genlmsg_len( info->genlhdr );
-	if( !data_len )
-	{
-		km_log( "Error: Zero lenght netlink message data.\n" );
-		return -EBADMSG;
-	}
-
-	data = genlmsg_data( info->genlhdr );
-	if( !data )
-	{
-		km_log( "Error: Null pointer data in genetlink message\n" );
-		return -EBADMSG;
-	}
-	km_log( "Payload: data (%p), length %d\n", data, data_len );
-
-	// ---------------------------------
-	// Get PID attribute value (if any)
-	// ---------------------------------
-	if( info->attrs[ KEYMON_GENL_ATTR_PID ] )
-	{
-		pid = nla_get_u32( info->attrs[ KEYMON_GENL_ATTR_PID ] );
-		if( !pid )
-		{
-			km_log( "Incorrect PID value for REGISTER command\n" );
-			return -EINVAL;
-		}
-
-		km_log( "Got REGISTER command for PID = %d\n", pid );
-	}
-
-	return 0;
 }
 
 //=============================================================================
@@ -179,17 +188,17 @@ static int keymon_genl_notify_dump( struct sk_buff *skb, struct netlink_callback
 /// This function called from module_exit and on failure in module_init.
 static void cleanup(void)
 {
-	int ret = 0;
+	int rc = 0;
 	
 	// -------------------------------------------------
 	// Unregister family (ops unregisters automatically)
 	// -------------------------------------------------
 	if( keymon_genl_family.id )
 	{
-		ret = genl_unregister_family( &keymon_genl_family );
-		if( ret != 0 )
+		rc = genl_unregister_family( &keymon_genl_family );
+		if( rc != 0 )
 		{
-			km_log("Failed to unregister generic netlink family. Error %d\n", ret);
+			km_log("Failed to unregister generic netlink family. Error %d\n", rc);
 		}
 	}
 
@@ -198,10 +207,10 @@ static void cleanup(void)
 	// -------------------------------------------------
 	// FIXME: Should somehow check that keymon_kb_nf is registered like
 	// if(keymon_genl_family.id)
-	ret = unregister_keyboard_notifier( &keymon_kb_nf );
-	if( ret != 0 )
+	rc = unregister_keyboard_notifier( &keymon_kb_nf );
+	if( rc != 0 )
 	{
-		km_log("Failed to unregister keyboard notifier. Error %d\n", ret);
+		km_log("Failed to unregister keyboard notifier. Error %d\n", rc);
 	}
 
 	return;
@@ -215,27 +224,37 @@ static void cleanup(void)
 /// @return 0 on success, error code otherwise
 static int keymon_init(void)
 {
-	int ret = 0;
+	int rc = 0;
 
 	// ----------------------------------------------
 	// Register generic netlink family
 	// ----------------------------------------------
-	ret = genl_register_family_with_ops( &keymon_genl_family, 
+	rc = genl_register_family_with_ops( &keymon_genl_family, 
                           keymon_genl_ops, ARRAY_SIZE(keymon_genl_ops) );
-	if( ret )
+	if( rc )
 	{
-		km_log( "Failed to register generic netlink family. Error %d\n", ret );
+		km_log( "Failed to register generic netlink family. Error %d\n", rc );
 		goto fail;
 	}
 	km_log( "Generic netlink family id = %d\n", keymon_genl_family.id );
 
+	// ----------------------------------------------------
+	// Register multicast group for generic netlink family
+	// ----------------------------------------------------
+	rc = genl_register_mc_group( &keymon_genl_family, &keymon_mc_group );
+	if( rc )
+	{
+		km_log( "Failed to register multicast group. Error %d\n", rc );
+		goto fail;
+	}
+
 	// ---------------------------------------------
 	// Register keyboard notifier
 	// ---------------------------------------------
-	ret = register_keyboard_notifier( &keymon_kb_nf );
-	if( ret )
+	rc = register_keyboard_notifier( &keymon_kb_nf );
+	if( rc )
 	{
-		km_log( "Failed to register keyboard notifier. Error %d\n", ret );
+		km_log( "Failed to register keyboard notifier. Error %d\n", rc );
 		goto fail;
 	}
 

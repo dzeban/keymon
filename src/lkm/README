@@ -13,20 +13,10 @@ Generaly speaking there is a netlink socket that LKM uses to send keyboard
 events and daemon uses it to receive keyboard events and register in LKM (see
 below).
 
-In particular LKM registers new generic netlink family "KEYMON" with 2
-operations:
-* KEYMON_GENL_CMD_NOTIFY
-* KEYMON_GENL_CMD_REGISTER
+In particular LKM registers new generic netlink family "KEYMON" with 
+KEYMON_GENL_CMD_NOTIFY operation which is used to transfer keyboard event.
 
-KEYMON_GENL_CMD_NOTIFY command is used to transfer keyboard event.
-
-KEYMON_GENL_CMD_REGISTER command is intended to register daemon in LKM. This is 
-needed because LKM sends unicast messages and needs to know daemon PID.  
-Register uses attributed value KEYMON_GENL_ATTR_PID.
-
-NOTE: We do not use multicast because keyboard monitoring is kind of sensitive 
-information and can be used as keylogger, so we don't need any other processes
-to listen on our events. 
+This command is sent via multicast group registered for generic netlink family.
 
 There is attribute policy keymon_nla_policy for all of attributes used. This
 policy inform netlink subsytem to do validation of attributes so we don't have

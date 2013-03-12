@@ -4,11 +4,13 @@ CC=gcc
 # Get pre-processor, compile and link flags from pkgconfig
 # On Fedora it's not 'pkgconfig', it's pkg-config
 LIBNL_FLAGS= $(shell pkg-config --cflags --libs libnl-genl-3.0)
-CFLAGS= $(LIBNL_FLAGS) -Wall
+LIBDB_FLAGS= -ldb
+CFLAGS= $(LIBNL_FLAGS) -Wall 
 
 daemon:
-	@echo $(LIBNL_FLAGS)
-	$(CC) $(CFLAGS) keymond.c -o keymond
+	$(CC) $(CFLAGS) -o keymond keymond.c 
+bdb:
+	$(CC) $(LIBDB_FLAGS) -o bdb bdb.c 
 
 clean:
-	rm -f keymond
+	rm -f keymond bdb

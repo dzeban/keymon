@@ -21,6 +21,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 
 #include <netlink/netlink.h>
@@ -29,7 +30,8 @@
 #include <netlink/genl/ctrl.h>
 #include <netlink/genl/family.h>
 
-#define KEYMON_GENL_FAMILY_NAME "Keymon"
+#define KEYMON_GENL_FAMILY_NAME "keymon"
+#define KEYMON_MC_GROUP_NAME "keymon_mc_group"
 
 #define KEYMON_GENL_VERSION 1
 
@@ -42,7 +44,6 @@
 enum keymon_genl_commands {
 	__KEYMON_GENL_CMD_UNSPEC = 0,
 
-	KEYMON_GENL_CMD_REGISTER, // Incoming daemon registration command
 	KEYMON_GENL_CMD_NOTIFY,   // Outcoming keyboard notify command
 
 	__KEYMON_GENL_CMD_LAST,
@@ -59,7 +60,7 @@ enum keymon_genl_commands {
 enum keymon_genl_attrs {
 	__KEYMON_GENL_ATTR_UNSPEC = 0,
 
-	KEYMON_GENL_ATTR_PID, // Integer of daemon PID to send netlink messages
+	KEYMON_GENL_ATTR_NOTIFICATION, // FIXME: String with notification
 
 	__KEYMON_GENL_ATTR_LAST,
 	KEYMON_GENL_ATTR_MAX = __KEYMON_GENL_ATTR_LAST - 1
@@ -70,5 +71,5 @@ enum keymon_genl_attrs {
 // This is used by generic netlink contoller to validate our attributes
 // -----------------------------------------------------------------------------
 struct nla_policy keymon_nla_policy[ KEYMON_GENL_ATTR_MAX + 1 ] = {
-	[ KEYMON_GENL_ATTR_PID ] = { .type = NLA_U32 } 
+	[ KEYMON_GENL_ATTR_NOTIFICATION ] = { .type = NLA_STRING }
 };

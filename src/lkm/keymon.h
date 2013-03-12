@@ -33,7 +33,9 @@
 
 #define km_log(fmt, args...) printk(KERN_DEBUG "Keymon: In %s:%d. " fmt, __FUNCTION__, __LINE__, ## args)
 
-static int keymon_genl_register_cmd( struct sk_buff *skb, struct genl_info *info );
+// Netlink port id of userspace daemon.
+int keymond_pid = -1;
+
 static int keymon_genl_notify_dump( struct sk_buff *skb, struct netlink_callback *cb );
 static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void *_param );
 
@@ -46,7 +48,6 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 enum keymon_genl_commands {
 	__KEYMON_GENL_CMD_UNSPEC = 0,
 
-	KEYMON_GENL_CMD_REGISTER, // Incoming daemon registration command
 	KEYMON_GENL_CMD_NOTIFY,   // Outcoming keyboard notify command
 
 	__KEYMON_GENL_CMD_LAST,
@@ -63,7 +64,7 @@ enum keymon_genl_commands {
 enum keymon_genl_attrs {
 	__KEYMON_GENL_ATTR_UNSPEC = 0,
 
-	KEYMON_GENL_ATTR_PID, // Integer of daemon PID to send netlink messages
+	KEYMON_GENL_ATTR_NOTIFICATION, // FIXME: String with notification
 
 	__KEYMON_GENL_ATTR_LAST,
 	KEYMON_GENL_ATTR_MAX = __KEYMON_GENL_ATTR_LAST - 1
@@ -74,14 +75,16 @@ enum keymon_genl_attrs {
 // This is used by generic netlink contoller to validate our attributes
 // -----------------------------------------------------------------------------
 struct nla_policy keymon_nla_policy[ KEYMON_GENL_ATTR_MAX + 1 ] = {
-	[ KEYMON_GENL_ATTR_PID ] = { .type = NLA_U32 } 
+	[ KEYMON_GENL_ATTR_NOTIFICATION ] = { .type = NLA_STRING } // FIXME: String with notification
+
 };
 
 // -----------------------------------------------------------------------------
 // Keymon generic netlink family definition
 // -----------------------------------------------------------------------------
 #define KEYMON_GENL_VERSION 1
-#define KEYMON_GENL_FAMILY_NAME "Keymon"
+#define KEYMON_GENL_FAMILY_NAME "keymon"
+#define KEYMON_MC_GROUP_NAME "keymon_mc_group"
 struct genl_family keymon_genl_family = {
 	.id      = GENL_ID_GENERATE, // Generate ID 
 	.hdrsize = 0, // No custom header
@@ -89,6 +92,12 @@ struct genl_family keymon_genl_family = {
 	.version = KEYMON_GENL_VERSION,
 	.maxattr = KEYMON_GENL_ATTR_MAX
 };
+
+// Multicast group for netlink family
+struct genl_multicast_group keymon_mc_group = {
+	.name = KEYMON_MC_GROUP_NAME
+};
+
 
 // -----------------------------------------------------------------------------
 // Keymon generic netlink operations for generic netlink family defined above
@@ -100,12 +109,6 @@ struct genl_ops keymon_genl_ops[] = {
 		.dumpit = keymon_genl_notify_dump, 
 		.policy = keymon_nla_policy
 	},
-	{
-		.cmd    = KEYMON_GENL_CMD_REGISTER,
-		.doit   = keymon_genl_register_cmd,
-		.dumpit = NULL,
-		.policy = keymon_nla_policy
-	}
 };
 
 

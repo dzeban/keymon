@@ -22,25 +22,18 @@
 
 #include "keymond.h"
 
-int construct_attrs(struct nl_msg *msg)
+int receiver(struct nl_msg *msg, void *arg)
 {
-	NLA_PUT_U32(msg, KEYMON_GENL_ATTR_PID, 182);
-
-	return 0;
-
-nla_put_failure: // Reserved label used by NLA_PUT_* macros
-	return -EMSGSIZE;
+	printf( "Received message\n" );
+	return NL_OK;
 }
 
 int main(int argc, const char *argv[])
 {
 	struct nl_sock *sk = NULL;
 	struct nl_cache *genl_cache = NULL;
-	struct genl_family *keymon_genl_family = NULL;
-	struct nl_msg *msg = NULL;
-	void *user_hdr = NULL;
-	int keymon_family_id = 0;
-	int ret = EXIT_SUCCESS;
+	int keymon_mc_group_id = 0;
+	int rc = EXIT_SUCCESS;
 
 	// ----------------------
 	// Allocate a new socket
@@ -49,20 +42,30 @@ int main(int argc, const char *argv[])
 	if( !sk )
 	{
 		perror( "nl_socket_alloc" );
-		ret = EXIT_FAILURE;
+		rc = EXIT_FAILURE;
 		goto fail;
 	}
 	printf( "Netlink socket allocated (%p)\n", sk );
 
+	// Disable sequence number checking
+	nl_socket_disable_seq_check( sk );
+
+	// ------------------------------
+	// Set socket callbacks
+	// ------------------------------
+	
+	// Entry callback for valid incoming messages
+	rc = nl_socket_modify_cb( sk, NL_CB_VALID, NL_CB_CUSTOM, receiver, NULL );
+
 	// -------------------------------
 	// Connect to Generic Netlink bus
 	// -------------------------------
-	ret = genl_connect( sk );
-	if( ret < 0 )
+	rc = genl_connect( sk );
+	if( rc < 0 )
 	{
 		perror( "genl_connect" );
-		printf( "ret is %d\n", ret );
-		ret = EXIT_FAILURE;
+		printf( "rc is %d\n", rc );
+		rc = EXIT_FAILURE;
 		goto fail;
 	}
 	printf( "Netlink socket connected \n" );
@@ -70,100 +73,51 @@ int main(int argc, const char *argv[])
 	// ------------------------------------- 
 	// Allocate libnl generic netlink cache
 	// ------------------------------------- 
-	ret = genl_ctrl_alloc_cache( sk, &genl_cache );
-	if( ret < 0 )
+	rc = genl_ctrl_alloc_cache( sk, &genl_cache );
+	if( rc < 0 )
 	{
 		perror( "genl_ctrl_alloc_cache" );
-		printf( "ret is %d\n", ret );
-		ret = EXIT_FAILURE;
+		printf( "rc is %d\n", rc );
+		rc = EXIT_FAILURE;
 		goto fail;
 	}
 	printf( "genl_cache allocated (%p)\n", genl_cache );
 
-	// ------------------------------------------------
-	// Find Keymon kernel space generic family by name
-	// ------------------------------------------------
-	keymon_genl_family = genl_ctrl_search_by_name( genl_cache,
-	                                               KEYMON_GENL_FAMILY_NAME );
-
-	if( !keymon_genl_family )
-	{
-		perror( "genl_ctrl_search_by_name" );
-		ret = EXIT_FAILURE;
-		goto fail;
-	}
-	printf( "keymon_genl_family found (%p)\n", keymon_genl_family );
-
 	// ------------------------------------------------------------
-	// Resolve generic netlink family id (needed to send messages)
+	// Resolve keymon muilticast group 
 	// ------------------------------------------------------------
-	keymon_family_id = genl_ctrl_resolve( sk, KEYMON_GENL_FAMILY_NAME );
-	if ( keymon_family_id < 0 )
+	keymon_mc_group_id = genl_ctrl_resolve_grp( sk, KEYMON_GENL_FAMILY_NAME,
+	                                                   KEYMON_MC_GROUP_NAME );
+	if ( keymon_mc_group_id < 0 )
 	{
-		perror( "genl_ctrl_resolve" );
-		ret = EXIT_FAILURE;
+		perror( "genl_ctrl_resolve_grp" );
+		rc = EXIT_FAILURE;
+		goto fail;
+	}
+	printf( "keymon_mc_group_id is %d\n", keymon_mc_group_id );
+
+	// ----------------------------
+	// Join keymon multicast group
+	// ----------------------------
+	rc = nl_socket_add_memberships( sk, keymon_mc_group_id, 0 );
+	if ( rc < 0 )
+	{
+		perror( "nl_socket_add_membership" );
+		rc = EXIT_FAILURE;
 		goto fail;
 	}
 
-	printf( "keymon_family_id is %d\n", keymon_family_id );
-
-	// ----------------------
-	// Message construction
-	// ----------------------
-	msg = nlmsg_alloc();
-	if( !msg )
+	// ------------------------------------------------------------------------
+	// Start receiving messages. The function nl_recvmsgs_default() will block
+	// until one or more netlink messages (notification) are received which
+	// will be passed on to receiver().
+	// ------------------------------------------------------------------------
+	while (1)
 	{
-		perror("nlmsg_alloc");
-		ret = EXIT_FAILURE;
-		goto fail;
+		nl_recvmsgs_default(sk);
 	}
-
-	// Adds generic netlink header to netlink message
-	user_hdr = genlmsg_put( msg, 
-	                        NL_AUTO_PORT, 
-	                        NL_AUTO_SEQ, 
-	                        keymon_family_id, 
-	                        0, // User header length
-	                        0, // Flags
-	                        KEYMON_GENL_CMD_REGISTER, 
-	                        KEYMON_GENL_VERSION );
-	
-	printf( "User header after genlmsg_put is %p\n", user_hdr );
-	
-	// Add attributed value
-	ret = construct_attrs( msg );
-	if( ret < 0 )
-	{
-		perror( "construct_attrs" );
-		ret = EXIT_FAILURE;
-		goto fail;
-	}
-
-	// ---------------
-	// SEND MESSAGE
-	// ---------------
-	ret = nl_send_auto( sk, msg );
-	if( ret < 0 )
-	{
-		perror( "nl_send_auto" );
-		ret = EXIT_FAILURE;
-		goto fail;
-	}
-
-	printf( "MESSAGE SENT (%d bytes)!\n", ret );
 
 fail:
-	
-	if( msg )
-	{
-		nlmsg_free( msg );
-	}
-
-	if( keymon_genl_family )
-	{
-		genl_family_put( keymon_genl_family );
-	}
-
 	if( genl_cache )
 	{
 		nl_cache_free( genl_cache );
@@ -174,6 +128,5 @@ fail:
 		nl_socket_free( sk );
 	}
 
-	return ret;
-	
+	return rc;
 }
