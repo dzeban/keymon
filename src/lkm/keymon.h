@@ -31,10 +31,25 @@
 #include <linux/keyboard.h> /* Needed for                   */
 #include <linux/notifier.h> /*            keyboard notifier */
 
+#include <linux/hardirq.h>
+
 #define km_log(fmt, args...) printk(KERN_DEBUG "Keymon: In %s:%d. " fmt, __FUNCTION__, __LINE__, ## args)
 
-// Netlink port id of userspace daemon.
-int keymond_pid = -1;
+// ---------------------------------------------------------------------------
+// Keymon work queue.
+//
+// Used to defer work from keyboard notification callback 
+// (which is in atomic/irq context) to kernel thread handling workqueue.
+static struct workqueue_struct *keymon_wq;
+#define KEYMON_WQ_NAME "keymon_wq"
+
+// Work struct passed to handler
+struct keymon_work
+{
+	struct keyboard_notifier_param *kb_param; // What we will handle in queue
+	struct work_struct ws;                    // Workqueue item
+};
+// ---------------------------------------------------------------------------
 
 static int keymon_genl_notify_dump( struct sk_buff *skb, struct netlink_callback *cb );
 static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void *_param );

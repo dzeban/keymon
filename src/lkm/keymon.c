@@ -27,20 +27,41 @@
 //=============================================================================
 /// Sends NOTIFY command over generic netlink socket.
 ///
+/// This is actually workqueue handler that does netlink stuff in non-atomic
+/// context.
+///
 /// @param param - parameters of notification
 ///
-/// * Checks if daemon is present by checking keymond_pid value (set when daemon
-///   sends REGISTER command over netlink socket).
 /// * Constructs netlink message for NOTIFY command (KEYMON_GENL_CMD_NOTIFY)
 /// * Adds notification attribute (KEYMON_GENL_ATTR_NOTIFICATION)
 /// * Sends notification to userspace daemon.
 //
-static void keymon_send_notification( struct keyboard_notifier_param *param )
+static void keymon_send_notification( struct work_struct *work )
 {
+	struct keymon_work *w = NULL;
+	struct keyboard_notifier_param *param = NULL;
+
 	struct sk_buff *skb;
 	void *msg;
 	char notification[256];
 	int rc = 0;
+
+	// ---------------------------------------------
+	// Dereference keyboard notification parameters
+	// ---------------------------------------------
+	w = container_of( work, struct keymon_work, ws );
+	if( !w )
+	{
+		km_log( "Failed to get work struct container.\n" );
+		return;
+	}
+
+	param = w->kb_param;
+	if( !param )
+	{
+		km_log( "Failed to get keyboard notification param.\n");
+		return;
+	}
 
 	// ----------------------------------------------
 	// Construct netlink and generic netlink headers
@@ -49,11 +70,11 @@ static void keymon_send_notification( struct keyboard_notifier_param *param )
 	if( !skb )
 	{
 		km_log( "Failed to construct message\n" );
-		return;
+		goto fail;
 	}
 
 	msg = genlmsg_put( skb, 
-	                   keymond_pid, // Netlink portid of receiver
+					   0,
 	                   0,           // Sequence number (don't care)
 	                   &keymon_genl_family,   // Pointer to family struct
 	                   0,                     // Flags
@@ -62,7 +83,7 @@ static void keymon_send_notification( struct keyboard_notifier_param *param )
 	if( !msg )
 	{
 		km_log( "Failed to create generic netlink message\n" );
-		return;
+		goto fail;
 	}
 
 	// -------------------------------------
@@ -75,7 +96,7 @@ static void keymon_send_notification( struct keyboard_notifier_param *param )
 	if( rc )
 	{
 		km_log( "Failed to construct notification. rc = %d\n", rc);
-		return;
+		goto fail;
 	}
 
 	// --------------------------
@@ -83,14 +104,20 @@ static void keymon_send_notification( struct keyboard_notifier_param *param )
 	// --------------------------
 	genlmsg_end( skb, msg );
 
-	rc = genlmsg_multicast( skb, 0, keymon_mc_group.id, GFP_KERNEL );
+	rc = genlmsg_multicast_allns( skb, 0, keymon_mc_group.id, GFP_KERNEL );
+
 	if( rc )
 	{
 		km_log( "Failed to send message. rc = %d\n", rc );
-		return;
+		goto fail;
 	}
 
 	km_log( "Notification successfully sent!\n" );
+	return;
+
+fail:
+	// Need this to free work struct
+	kfree( w );
 }
 
 //=============================================================================
@@ -113,6 +140,7 @@ static void keymon_send_notification( struct keyboard_notifier_param *param )
 static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void *_param )
 {
 	struct keyboard_notifier_param *param = NULL;
+	struct keymon_work *w = NULL;
 
 	param = (struct keyboard_notifier_param *)_param;
 
@@ -121,7 +149,7 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 		km_log("Bad keyboard notification\n");
 		return NOTIFY_BAD;
 	}
-	
+
 	// 
 	// NOTE: Little portion of common sense below.
 	//
@@ -159,9 +187,22 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 		km_log("Down %d, shift %d, ledstate %d, value %u\n", 
 		param->down, param->shift, param->ledstate, param->value );
 
-		// FIXME: If notification failed we need to do something.
-		keymon_send_notification( param );
+		// ---------------------------------------------------------
+		// Submit notification work.
+		// (We can't send notification here in atomic/irq context).
+		// ---------------------------------------------------------
+		w = (struct keymon_work *)kzalloc( sizeof(struct keymon_work), GFP_ATOMIC );
+		if( !w )
+		{
+			km_log( "Failed to submit notification to workqueue\n" );
+			return NOTIFY_BAD; // FIXME: Does keyboard notifier cares about our problems?
+		}
 
+		INIT_WORK( &w->ws, keymon_send_notification );
+		w->kb_param = param; // Save notification data
+
+		queue_work( keymon_wq, &w->ws );
+		
 	}
 
 	return NOTIFY_DONE;
@@ -184,12 +225,34 @@ static int keymon_genl_notify_dump( struct sk_buff *skb, struct netlink_callback
 //   cleanup
 //=============================================================================
 /// Does the cleanup.
-/// Unregisters generic netlink family, unregisters keyboard notifier.
+/// Unregisters generic netlink family, unregisters keyboard notifier and
+/// destroys workqueue.
+///
 /// This function called from module_exit and on failure in module_init.
 static void cleanup(void)
 {
 	int rc = 0;
 	
+	// -------------------------------------------------
+	// Unregister keyboard notifier
+	// -------------------------------------------------
+	// FIXME: Should somehow check that keymon_kb_nf is registered like
+	// if(keymon_genl_family.id)
+	rc = unregister_keyboard_notifier( &keymon_kb_nf );
+	if( rc != 0 )
+	{
+		km_log("Failed to unregister keyboard notifier. Error %d\n", rc);
+	}
+
+	// -------------------
+	// Halt workqueue
+	// -------------------
+	if( keymon_wq )
+	{
+		flush_workqueue( keymon_wq );
+		destroy_workqueue( keymon_wq );
+	}
+
 	// -------------------------------------------------
 	// Unregister family (ops unregisters automatically)
 	// -------------------------------------------------
@@ -200,17 +263,6 @@ static void cleanup(void)
 		{
 			km_log("Failed to unregister generic netlink family. Error %d\n", rc);
 		}
-	}
-
-	// -------------------------------------------------
-	// Unregister keyboard notifier
-	// -------------------------------------------------
-	// FIXME: Should somehow check that keymon_kb_nf is registered like
-	// if(keymon_genl_family.id)
-	rc = unregister_keyboard_notifier( &keymon_kb_nf );
-	if( rc != 0 )
-	{
-		km_log("Failed to unregister keyboard notifier. Error %d\n", rc);
 	}
 
 	return;
@@ -248,6 +300,16 @@ static int keymon_init(void)
 		goto fail;
 	}
 
+	// -----------------------
+	// Initialize workqueue
+	// -----------------------
+	keymon_wq = create_workqueue( KEYMON_WQ_NAME );
+	if( !keymon_wq )
+	{
+		km_log( "Failed to create workqueue.\n" );
+		goto fail;
+	}
+	
 	// ---------------------------------------------
 	// Register keyboard notifier
 	// ---------------------------------------------
@@ -261,6 +323,7 @@ static int keymon_init(void)
 	return 0;
 
 fail:
+	// FIXME: Isn't it will be called by module_exit?
 	cleanup();
 	return -EINVAL;
 }
