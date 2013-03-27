@@ -74,7 +74,7 @@ static void keymon_send_notification( struct work_struct *work )
 	}
 
 	msg = genlmsg_put( skb, 
-					   0,
+	                   0,           // PID is whatever
 	                   0,           // Sequence number (don't care)
 	                   &keymon_genl_family,   // Pointer to family struct
 	                   0,                     // Flags
@@ -106,18 +106,21 @@ static void keymon_send_notification( struct work_struct *work )
 
 	rc = genlmsg_multicast_allns( skb, 0, keymon_mc_group.id, GFP_KERNEL );
 
-	if( rc )
+	// If error - fail.
+	// ESRCH is forever alone case - no one is listening for our messages 
+	// and it's ok, since userspace daemon can be unloaded.
+	if( rc && rc != -ESRCH ) 
 	{
 		km_log( "Failed to send message. rc = %d\n", rc );
 		goto fail;
 	}
 
 	km_log( "Notification successfully sent!\n" );
-	return;
 
 fail:
 	// Need this to free work struct
 	kfree( w );
+	return;
 }
 
 //=============================================================================
