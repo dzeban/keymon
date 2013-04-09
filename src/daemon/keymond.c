@@ -24,7 +24,47 @@
 
 int receiver(struct nl_msg *msg, void *arg)
 {
+	struct nlmsghdr *nlh = NULL;
+	struct nlattr *attrs[ KEYMON_GENL_ATTR_MAX + 1 ];
+	int data_len = 0;
+	char *data = NULL;
+	int i = 0;
+
 	printf( "Received message\n" );
+
+	nlh = nlmsg_hdr( msg );
+	if( !nlh )
+	{
+		printf( "Failed to get message header\n" );
+		return NL_SKIP;
+	}
+
+	if( genlmsg_parse(nlh, 0, attrs, KEYMON_GENL_ATTR_MAX, keymon_nla_policy ) < 0)
+	{
+		printf( "Failed to parse netlink message\n" );
+		return NL_SKIP;
+	}
+
+	if( attrs[ KEYMON_GENL_ATTR_KEY_VALUE ] )
+	{
+		printf( "Key value %02X\n", nla_get_u32(attrs[ KEYMON_GENL_ATTR_KEY_VALUE ]) );
+	}
+
+	if( attrs[ KEYMON_GENL_ATTR_KEY_DOWN ] )
+	{
+		printf( "Key down %02X\n", nla_get_u8(attrs[ KEYMON_GENL_ATTR_KEY_DOWN ]) );
+	}
+
+	if( attrs[ KEYMON_GENL_ATTR_KEY_SHIFT ] )
+	{
+		printf( "Key shift %02X\n", nla_get_u8(attrs[ KEYMON_GENL_ATTR_KEY_SHIFT ]) );
+	}
+
+	if( attrs[ KEYMON_GENL_ATTR_KEY_LEDSTATE ] )
+	{
+		printf( "Key ledstate %02X\n", nla_get_u8(attrs[ KEYMON_GENL_ATTR_KEY_LEDSTATE ]) );
+	}
+
 	return NL_OK;
 }
 

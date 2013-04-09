@@ -38,39 +38,33 @@
 //
 static void keymon_send_notification( struct work_struct *work )
 {
-	struct keymon_work *w = NULL;
-	struct keyboard_notifier_param *param = NULL;
+	struct keymon_notification *nf = NULL;
 
 	struct sk_buff *skb;
 	void *msg;
-	char notification[256];
 	int rc = 0;
 
 	// ---------------------------------------------
 	// Dereference keyboard notification parameters
 	// ---------------------------------------------
-	w = container_of( work, struct keymon_work, ws );
-	if( !w )
+	nf = container_of( work, struct keymon_notification, ws );
+	if( !nf )
 	{
 		km_log( "Failed to get work struct container.\n" );
 		return;
 	}
 
-	param = w->kb_param;
-	if( !param )
-	{
-		km_log( "Failed to get keyboard notification param.\n");
-		return;
-	}
+	km_log("Down %d, shift %d, ledstate %d, value %u\n", 
+	nf->down, nf->shift, nf->ledstate, nf->value );
 
 	// ----------------------------------------------
 	// Construct netlink and generic netlink headers
 	// ----------------------------------------------
-	skb = nlmsg_new( NLMSG_GOODSIZE, GFP_KERNEL );
+	skb = genlmsg_new( NLMSG_GOODSIZE, GFP_KERNEL );
 	if( !skb )
 	{
 		km_log( "Failed to construct message\n" );
-		goto fail;
+		goto out;
 	}
 
 	msg = genlmsg_put( skb, 
@@ -83,20 +77,18 @@ static void keymon_send_notification( struct work_struct *work )
 	if( !msg )
 	{
 		km_log( "Failed to create generic netlink message\n" );
-		goto fail;
+		goto out;
 	}
 
-	// -------------------------------------
-	// Put genetlink NOTIFICATION attribute 
-	// -------------------------------------
-	snprintf(notification, 256, "Down %d, shift %d, ledstate %d, value %u", 
-	param->down, param->shift, param->ledstate, param->value );
-
-	rc = nla_put_string(skb, KEYMON_GENL_ATTR_NOTIFICATION, notification);
-	if( rc )
+	// --------------------------------------------
+	// Fill attributes 
+	// --------------------------------------------
+	if( nla_put_u32( skb, KEYMON_GENL_ATTR_KEY_VALUE,    nf->value ) ||
+		nla_put_u32( skb, KEYMON_GENL_ATTR_KEY_DOWN,     nf->down  ) ||
+		nla_put_u32( skb, KEYMON_GENL_ATTR_KEY_SHIFT,    nf->shift ) ||
+		nla_put_u32( skb, KEYMON_GENL_ATTR_KEY_LEDSTATE, nf->ledstate ))
 	{
-		km_log( "Failed to construct notification. rc = %d\n", rc);
-		goto fail;
+		goto nla_put_failure;
 	}
 
 	// --------------------------
@@ -112,14 +104,16 @@ static void keymon_send_notification( struct work_struct *work )
 	if( rc && rc != -ESRCH ) 
 	{
 		km_log( "Failed to send message. rc = %d\n", rc );
-		goto fail;
+		goto out;
 	}
 
-	km_log( "Notification successfully sent!\n" );
+	goto out; // FIXME: should rewrite this little spaghetti logic
 
-fail:
-	// Need this to free work struct
-	kfree( w );
+nla_put_failure:
+	genlmsg_cancel( skb, msg );
+out:
+	// Need this to free notification allocated in irq handler
+	kfree( nf );
 	return;
 }
 
@@ -143,7 +137,7 @@ fail:
 static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void *_param )
 {
 	struct keyboard_notifier_param *param = NULL;
-	struct keymon_work *w = NULL;
+	struct keymon_notification     *nf    = NULL;
 
 	param = (struct keyboard_notifier_param *)_param;
 
@@ -171,7 +165,7 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 	// So here we will look only for keycodes of key down events. We don't need
 	// to know about keysym, cause we intersted in physical buttons not symbols.
 	//
-	
+
 	// param->down can have values 0 for key up, 1 for key down and 2 for key
 	// hold.
 	//
@@ -187,25 +181,29 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 
 	if( param->down && code == KBD_KEYCODE )
 	{
-		km_log("Down %d, shift %d, ledstate %d, value %u\n", 
-		param->down, param->shift, param->ledstate, param->value );
 
 		// ---------------------------------------------------------
 		// Submit notification work.
 		// (We can't send notification here in atomic/irq context).
 		// ---------------------------------------------------------
-		w = (struct keymon_work *)kzalloc( sizeof(struct keymon_work), GFP_ATOMIC );
-		if( !w )
+		nf = (struct keymon_notification *)kzalloc( sizeof(struct keymon_notification), GFP_ATOMIC );
+		if( !nf )
 		{
 			km_log( "Failed to submit notification to workqueue\n" );
 			return NOTIFY_BAD; // FIXME: Does keyboard notifier cares about our problems?
 		}
 
-		INIT_WORK( &w->ws, keymon_send_notification );
-		w->kb_param = param; // Save notification data
+		INIT_WORK( &nf->ws, keymon_send_notification );
 
-		queue_work( keymon_wq, &w->ws );
-		
+		// Save notification in our struct.
+		// (We do this because keyboard_notifier_param 
+		//  will be freed after this irq handler is done)
+		nf->down     = param->down;
+		nf->shift    = param->shift;
+		nf->ledstate = param->ledstate;
+		nf->value    = param->value;
+
+		queue_work( keymon_wq, &nf->ws );
 	}
 
 	return NOTIFY_DONE;

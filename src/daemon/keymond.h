@@ -30,46 +30,5 @@
 #include <netlink/genl/ctrl.h>
 #include <netlink/genl/family.h>
 
-#define KEYMON_GENL_FAMILY_NAME "keymon"
-#define KEYMON_MC_GROUP_NAME "keymon_mc_group"
+#include "../include/genl_def.h"
 
-#define KEYMON_GENL_VERSION 1
-
-// -----------------------------------------------------------------------------
-// Keymon generic netlink commands.
-//
-// First and last commands are special cases used for validation and must not be
-// changed. Don't change the order. New commands is added in between.
-// -----------------------------------------------------------------------------
-enum keymon_genl_commands {
-	__KEYMON_GENL_CMD_UNSPEC = 0,
-
-	KEYMON_GENL_CMD_NOTIFY,   // Outcoming keyboard notify command
-
-	__KEYMON_GENL_CMD_LAST,
-	KEYMON_GENL_CMD_MAX = __KEYMON_GENL_CMD_LAST - 1
-};
-
-// -----------------------------------------------------------------------------
-// Keymon generic netlink attributes. 
-//
-// First and last attributes are special cases used for validation and must not
-// be changed. Don't change the order. To add new attribute - insert in between 
-// and update keymon_nla_policy.
-// -----------------------------------------------------------------------------
-enum keymon_genl_attrs {
-	__KEYMON_GENL_ATTR_UNSPEC = 0,
-
-	KEYMON_GENL_ATTR_NOTIFICATION, // FIXME: String with notification
-
-	__KEYMON_GENL_ATTR_LAST,
-	KEYMON_GENL_ATTR_MAX = __KEYMON_GENL_ATTR_LAST - 1
-};
-
-// -----------------------------------------------------------------------------
-// Attributes policy. 
-// This is used by generic netlink contoller to validate our attributes
-// -----------------------------------------------------------------------------
-struct nla_policy keymon_nla_policy[ KEYMON_GENL_ATTR_MAX + 1 ] = {
-	[ KEYMON_GENL_ATTR_NOTIFICATION ] = { .type = NLA_STRING }
-};

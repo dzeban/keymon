@@ -33,6 +33,8 @@
 
 #include <linux/hardirq.h>
 
+#include "../include/genl_def.h"
+
 #define km_log(fmt, args...) printk(KERN_DEBUG "Keymon: In %s:%d. " fmt, __FUNCTION__, __LINE__, ## args)
 
 // ---------------------------------------------------------------------------
@@ -44,10 +46,14 @@ static struct workqueue_struct *keymon_wq;
 #define KEYMON_WQ_NAME "keymon_wq"
 
 // Work struct passed to handler
-struct keymon_work
+struct keymon_notification
 {
-	struct keyboard_notifier_param *kb_param; // What we will handle in queue
-	struct work_struct ws;                    // Workqueue item
+	int down;           // Pressure of the key?
+	int shift;          // Current shift mask
+	int ledstate;		// Current led state
+	unsigned int value; // keycode, unicode value or keysym
+
+	struct work_struct ws;  // Workqueue item
 };
 // ---------------------------------------------------------------------------
 
@@ -55,51 +61,8 @@ static int keymon_genl_notify_dump( struct sk_buff *skb, struct netlink_callback
 static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void *_param );
 
 // -----------------------------------------------------------------------------
-// Keymon generic netlink commands.
-//
-// First and last commands are special cases used for validation and must not be
-// changed. Don't change the order. New commands is added in between.
-// -----------------------------------------------------------------------------
-enum keymon_genl_commands {
-	__KEYMON_GENL_CMD_UNSPEC = 0,
-
-	KEYMON_GENL_CMD_NOTIFY,   // Outcoming keyboard notify command
-
-	__KEYMON_GENL_CMD_LAST,
-	KEYMON_GENL_CMD_MAX = __KEYMON_GENL_CMD_LAST - 1
-};
-
-// -----------------------------------------------------------------------------
-// Keymon generic netlink attributes. 
-//
-// First and last attributes are special cases used for validation and must not
-// be changed. Don't change the order. To add new attribute - insert in between 
-// and update keymon_nla_policy.
-// -----------------------------------------------------------------------------
-enum keymon_genl_attrs {
-	__KEYMON_GENL_ATTR_UNSPEC = 0,
-
-	KEYMON_GENL_ATTR_NOTIFICATION, // FIXME: String with notification
-
-	__KEYMON_GENL_ATTR_LAST,
-	KEYMON_GENL_ATTR_MAX = __KEYMON_GENL_ATTR_LAST - 1
-};
-
-// -----------------------------------------------------------------------------
-// Attributes policy. 
-// This is used by generic netlink contoller to validate our attributes
-// -----------------------------------------------------------------------------
-struct nla_policy keymon_nla_policy[ KEYMON_GENL_ATTR_MAX + 1 ] = {
-	[ KEYMON_GENL_ATTR_NOTIFICATION ] = { .type = NLA_STRING } // FIXME: String with notification
-
-};
-
-// -----------------------------------------------------------------------------
 // Keymon generic netlink family definition
 // -----------------------------------------------------------------------------
-#define KEYMON_GENL_VERSION 1
-#define KEYMON_GENL_FAMILY_NAME "keymon"
-#define KEYMON_MC_GROUP_NAME "keymon_mc_group"
 struct genl_family keymon_genl_family = {
 	.id      = GENL_ID_GENERATE, // Generate ID 
 	.hdrsize = 0, // No custom header
@@ -113,7 +76,6 @@ struct genl_multicast_group keymon_mc_group = {
 	.name = KEYMON_MC_GROUP_NAME
 };
 
-
 // -----------------------------------------------------------------------------
 // Keymon generic netlink operations for generic netlink family defined above
 // -----------------------------------------------------------------------------
@@ -125,7 +87,6 @@ struct genl_ops keymon_genl_ops[] = {
 		.policy = keymon_nla_policy
 	},
 };
-
 
 // -----------------------------------------------------------------------------
 // Keyboard notifier
