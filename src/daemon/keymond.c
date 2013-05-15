@@ -26,9 +26,6 @@ int receiver(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nlh = NULL;
 	struct nlattr *attrs[ KEYMON_GENL_ATTR_MAX + 1 ];
-	int data_len = 0;
-	char *data = NULL;
-	int i = 0;
 
 	printf( "Received message\n" );
 

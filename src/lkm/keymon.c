@@ -101,7 +101,7 @@ static void keymon_send_notification( struct work_struct *work )
 	// If error - fail.
 	// ESRCH is forever alone case - no one is listening for our messages 
 	// and it's ok, since userspace daemon can be unloaded.
-	if( rc && rc != -ESRCH ) 
+	if( rc && rc != -ESRCH )
 	{
 		km_log( "Failed to send message. rc = %d\n", rc );
 		goto out;
