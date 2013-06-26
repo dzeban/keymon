@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <netlink/netlink.h>
 
@@ -32,3 +33,5 @@
 
 #include "../include/genl_def.h"
 
+struct nl_sock *sk = NULL;
+int keymon_mc_group_id = -1;

@@ -5,3 +5,5 @@ tags
 *.swo
 worklog
 _*
+*.sublime-project
+*.sublime-workspace

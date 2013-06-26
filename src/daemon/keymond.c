@@ -65,12 +65,10 @@ int receiver(struct nl_msg *msg, void *arg)
 	return NL_OK;
 }
 
-int main(int argc, const char *argv[])
+int nl_sock_init()
 {
-	struct nl_sock *sk = NULL;
+	int rc = 0;
 	struct nl_cache *genl_cache = NULL;
-	int keymon_mc_group_id = 0;
-	int rc = EXIT_SUCCESS;
 
 	// ----------------------
 	// Allocate a new socket
@@ -79,7 +77,7 @@ int main(int argc, const char *argv[])
 	if( !sk )
 	{
 		perror( "nl_socket_alloc" );
-		rc = EXIT_FAILURE;
+		rc = -1;
 		goto fail;
 	}
 	printf( "Netlink socket allocated (%p)\n", sk );
@@ -93,6 +91,13 @@ int main(int argc, const char *argv[])
 	
 	// Entry callback for valid incoming messages
 	rc = nl_socket_modify_cb( sk, NL_CB_VALID, NL_CB_CUSTOM, receiver, NULL );
+	if( rc < 0 )
+	{
+		perror( "nl_cb_set");
+		printf( "rc is %d\n", rc );
+		rc = -1;
+		goto fail;
+	}
 
 	// -------------------------------
 	// Connect to Generic Netlink bus
@@ -102,7 +107,7 @@ int main(int argc, const char *argv[])
 	{
 		perror( "genl_connect" );
 		printf( "rc is %d\n", rc );
-		rc = EXIT_FAILURE;
+		rc = -1;
 		goto fail;
 	}
 	printf( "Netlink socket connected \n" );
@@ -115,44 +120,21 @@ int main(int argc, const char *argv[])
 	{
 		perror( "genl_ctrl_alloc_cache" );
 		printf( "rc is %d\n", rc );
-		rc = EXIT_FAILURE;
+		rc = -1;
 		goto fail;
 	}
 	printf( "genl_cache allocated (%p)\n", genl_cache );
-
-	// ------------------------------------------------------------
-	// Resolve keymon muilticast group 
-	// ------------------------------------------------------------
-	keymon_mc_group_id = genl_ctrl_resolve_grp( sk, KEYMON_GENL_FAMILY_NAME,
-	                                                   KEYMON_MC_GROUP_NAME );
-	if ( keymon_mc_group_id < 0 )
+	
+	// Switch socket to non-blocking mode
+	if( nl_socket_set_nonblocking( sk ) < 0 )
 	{
-		perror( "genl_ctrl_resolve_grp" );
-		rc = EXIT_FAILURE;
+		perror( "nl_socket_set_nonblocking" );
+		rc = -1;
 		goto fail;
 	}
-	printf( "keymon_mc_group_id is %d\n", keymon_mc_group_id );
+	printf( "Netlink socket is set to non-blocking mode\n" );
 
-	// ----------------------------
-	// Join keymon multicast group
-	// ----------------------------
-	rc = nl_socket_add_memberships( sk, keymon_mc_group_id, 0 );
-	if ( rc < 0 )
-	{
-		perror( "nl_socket_add_membership" );
-		rc = EXIT_FAILURE;
-		goto fail;
-	}
-
-	// ------------------------------------------------------------------------
-	// Start receiving messages. The function nl_recvmsgs_default() will block
-	// until one or more netlink messages (notification) are received which
-	// will be passed on to receiver().
-	// ------------------------------------------------------------------------
-	while (1)
-	{
-		nl_recvmsgs_default(sk);
-	}
+	return rc;
 
 fail:
 	if( genl_cache )
@@ -163,6 +145,77 @@ fail:
 	if( sk )
 	{
 		nl_socket_free( sk );
+	}
+
+	return rc;
+}
+
+int keymon_connect()
+{
+	int rc = 0;
+
+	if( keymon_mc_group_id >= 0 )
+	{
+		// Already connected
+		//printf( "Already connected to keymon driver\n" );
+		return 0;
+	}
+
+	printf( "Connecting to keymon driver\n" );
+
+	// ------------------------------------------------------------
+	// Resolve keymon muilticast group 
+	// ------------------------------------------------------------
+	keymon_mc_group_id = genl_ctrl_resolve_grp( sk, KEYMON_GENL_FAMILY_NAME,
+	                                                   KEYMON_MC_GROUP_NAME );
+	if ( keymon_mc_group_id < 0 )
+	{
+		perror( "genl_ctrl_resolve_grp" );
+		return -1;
+	}
+	printf( "keymon_mc_group_id is %d\n", keymon_mc_group_id );
+
+	// ----------------------------
+	// Join keymon multicast group
+	// ----------------------------
+	rc = nl_socket_add_memberships( sk, keymon_mc_group_id, 0 );
+	if ( rc < 0 )
+	{
+		perror( "nl_socket_add_membership" );
+		return -1;
+	}
+
+	return 0;
+}
+
+int main(int argc, const char *argv[])
+{
+	
+	int rc = EXIT_SUCCESS;
+
+	if( nl_sock_init() < 0 )
+	{
+		perror( "nl_sock_init");
+		return EXIT_FAILURE;
+	}
+
+	while (1)
+	{
+		if( keymon_connect() )
+		{
+			// When there are no keymon driver we sleep and try to connect again
+			printf( "Failed to connect to keymon driver. Trying to reconnect...\n" );
+			sleep(5);
+			continue;
+		}
+		
+		// Receive messages
+		rc = nl_recvmsgs_default( sk );
+		if( rc < 0 )
+		{
+			printf( "nl_recvmsgs_default failed with rc = %d\n", rc );
+			keymon_mc_group_id = -1;
+		}
 	}
 
 	return rc;
