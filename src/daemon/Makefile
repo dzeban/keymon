@@ -5,7 +5,7 @@ CC=gcc
 # On Fedora it's not 'pkgconfig', it's pkg-config
 LIBNL_FLAGS= $(shell pkg-config --cflags --libs libnl-genl-3.0)
 LIBDB_FLAGS= -ldb
-CFLAGS= $(LIBNL_FLAGS) -Wall 
+CFLAGS= $(LIBNL_FLAGS) -Wall -lpthread
 
 daemon:
 	$(CC) $(CFLAGS) -o keymond keymond.c 

@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <netlink/netlink.h>
 
@@ -34,4 +35,9 @@
 #include "../include/genl_def.h"
 
 struct nl_sock *sk = NULL;
+
+pthread_t connector_thread;
+pthread_t receiver_thread;
+pthread_mutex_t sk_mutex;
+
 int keymon_mc_group_id = -1;
