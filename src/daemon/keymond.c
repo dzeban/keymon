@@ -38,8 +38,9 @@ int receiver(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nlh = NULL;
 	struct nlattr *attrs[ KEYMON_GENL_ATTR_MAX + 1 ];
-
-	printf( "Received message\n" );
+    static char buf[20];
+    static char hex[6];
+    int i = 0;
 
 	nlh = nlmsg_hdr( msg );
 	if( !nlh )
@@ -54,25 +55,18 @@ int receiver(struct nl_msg *msg, void *arg)
 		return NL_SKIP;
 	}
 
-	if( attrs[ KEYMON_GENL_ATTR_KEY_VALUE ] )
-	{
-		printf( "Key value %02X\n", nla_get_u32(attrs[ KEYMON_GENL_ATTR_KEY_VALUE ]) );
-	}
+    memset(buf, 0, 12);
+    for( i = KEYMON_GENL_ATTR_MIN; i <= KEYMON_GENL_ATTR_MAX; i++ )
+    {
+        if( attrs[ i ] )
+        {
+            // Print 2 hex digits into right place in buf
+            snprintf( hex, 6, "%c:%02X ", keymon_attrs_names[i-1], nla_get_u32( attrs[i] ) );
+		    strncat( buf, hex, 6 );
+        }
+    }
 
-	if( attrs[ KEYMON_GENL_ATTR_KEY_DOWN ] )
-	{
-		printf( "Key down %02X\n", nla_get_u8(attrs[ KEYMON_GENL_ATTR_KEY_DOWN ]) );
-	}
-
-	if( attrs[ KEYMON_GENL_ATTR_KEY_SHIFT ] )
-	{
-		printf( "Key shift %02X\n", nla_get_u8(attrs[ KEYMON_GENL_ATTR_KEY_SHIFT ]) );
-	}
-
-	if( attrs[ KEYMON_GENL_ATTR_KEY_LEDSTATE ] )
-	{
-		printf( "Key ledstate %02X\n", nla_get_u8(attrs[ KEYMON_GENL_ATTR_KEY_LEDSTATE ]) );
-	}
+    printf("%s\n", buf);
 
 	return NL_OK;
 }
@@ -113,7 +107,7 @@ int nl_sock_init()
 	sk = nl_socket_alloc();
 	if( !sk )
 	{
-		perror( "nl_socket_alloc" );
+		error( 0, 0, "nl_socket_alloc failed" );
 		rc = -1;
 		goto fail;
 	}
@@ -130,8 +124,7 @@ int nl_sock_init()
 	rc = nl_socket_modify_cb( sk, NL_CB_VALID, NL_CB_CUSTOM, receiver, NULL );
 	if( rc < 0 )
 	{
-		perror( "nl_cb_set");
-		printf( "rc is %d\n", rc );
+		error( 0, rc, "nl_cb_set failed");
 		rc = -1;
 		goto fail;
 	}
@@ -142,8 +135,7 @@ int nl_sock_init()
 	rc = genl_connect( sk );
 	if( rc < 0 )
 	{
-		perror( "genl_connect" );
-		printf( "rc is %d\n", rc );
+		error( 0, rc, "genl_connect failed" );
 		rc = -1;
 		goto fail;
 	}
@@ -155,8 +147,7 @@ int nl_sock_init()
 	rc = genl_ctrl_alloc_cache( sk, &genl_cache );
 	if( rc < 0 )
 	{
-		perror( "genl_ctrl_alloc_cache" );
-		printf( "rc is %d\n", rc );
+		error( 0, rc, "genl_ctrl_alloc_cache failed" );
 		rc = -1;
 		goto fail;
 	}
@@ -167,7 +158,7 @@ int nl_sock_init()
     // -----------------------------------
 	if( nl_socket_set_nonblocking( sk ) < 0 )
 	{
-		perror( "nl_socket_set_nonblocking" );
+		error( 0, 0, "nl_socket_set_nonblocking failed" );
 		rc = -1;
 		goto fail;
 	}
@@ -198,8 +189,6 @@ void *keymon_connect()
     {
         pthread_mutex_lock( &sk_mutex );
 
-        printf( "Connecting to keymon driver\n" );
-
         // ------------------------------------------------------------
         // Resolve keymon muilticast group 
         // ------------------------------------------------------------
@@ -207,10 +196,9 @@ void *keymon_connect()
                                                            KEYMON_MC_GROUP_NAME );
         if ( keymon_mc_group_id < 0 )
         {
-            perror( "genl_ctrl_resolve_grp" );
+            error( 0, keymon_mc_group_id, "genl_ctrl_resolve_grp failed" );
             goto sleep_cont;
         }
-        printf( "keymon_mc_group_id is %d\n", keymon_mc_group_id );
 
         // ----------------------------
         // Join keymon multicast group
@@ -218,7 +206,7 @@ void *keymon_connect()
         rc = nl_socket_add_memberships( sk, keymon_mc_group_id, 0 );
         if ( rc < 0 )
         {
-            perror( "nl_socket_add_membership" );
+            error( 0, rc, "nl_socket_add_membership failed" );
             keymon_mc_group_id = -1;
             goto sleep_cont;
         }
@@ -246,7 +234,7 @@ void *keymon_receive()
         rc = nl_recvmsgs_default( sk );
         if( rc < 0 )
         {
-            printf( "nl_recvmsgs_default failed with rc = %d\n", rc );
+            error( 0, rc, "nl_recvmsgs_default failed" );
             keymon_mc_group_id = -1;
         }
         pthread_mutex_unlock( &sk_mutex );

@@ -47,7 +47,7 @@ enum keymon_genl_commands {
 // and update keymon_nla_policy.
 // -----------------------------------------------------------------------------
 enum keymon_genl_attrs {
-	__KEYMON_GENL_ATTR_UNSPEC = 0,
+	__KEYMON_GENL_ATTR_FIRST = 0,
 
 	// Notification struct content
 	KEYMON_GENL_ATTR_KEY_VALUE,
@@ -57,7 +57,11 @@ enum keymon_genl_attrs {
 
 	__KEYMON_GENL_ATTR_LAST
 };
-#define KEYMON_GENL_ATTR_MAX __KEYMON_GENL_ATTR_LAST-1
+#define KEYMON_GENL_ATTR_MIN  __KEYMON_GENL_ATTR_FIRST + 1
+#define KEYMON_GENL_ATTR_MAX  __KEYMON_GENL_ATTR_LAST - 1
+
+const char keymon_attrs_names[KEYMON_GENL_ATTR_MAX] = { 'V', 'D', 'S', 'L' };
+
 // -----------------------------------------------------------------------------
 // Attributes policy. 
 // This is used by generic netlink contoller to validate our attributes
