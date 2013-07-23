@@ -19,3 +19,10 @@ struct keymon_record {
     int keycode;
     int hits;
 };
+
+enum rec_action
+{
+    REC_CHECK,
+    REC_CREATE,
+    REC_UPDATE
+};

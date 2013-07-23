@@ -19,53 +19,13 @@ struct keymon_event events[] = {
     {55,1,4},
 };
 
-int check_record( DB *db, struct keymon_event event )
+int rec( DB *db, struct keymon_event event, enum rec_action action )
 {
     DBT key, value;
     struct keymon_record rec;
     int rc = 0;
 
-    memset(&key, 0, sizeof(DBT));
-    memset(&value, 0, sizeof(DBT));
-
-    key.data = &event.value;
-    key.size = sizeof(int);
-
-    value.data = &rec;
-    value.size = sizeof(struct keymon_record);
-
-    rc = db->get(db, NULL, &key, &value, 0);
-    return rc;
-}
-
-int create_record( DB *db, struct keymon_event event )
-{
-    DBT key, value;
-    struct keymon_record rec;
-    int rc = 0;
-
-    memset(&key, 0, sizeof(DBT));
-    memset(&value, 0, sizeof(DBT));
-
-    rec.keycode = event.value;
-    rec.hits    = event.down;
-
-    key.data = &event.value;
-    key.size = sizeof(int);
-
-    value.data = &rec;
-    value.size = sizeof(struct keymon_record);
-
-    rc = db->put(db, NULL, &key, &value, 0);
-    return rc;
-}
-
-int update_record( DB *db, struct keymon_event event )
-{
-    DBT key, value;
-    struct keymon_record rec;
-    int rc = 0;
-
+    // Initialize DB things
     memset(&key, 0, sizeof(DBT));
     memset(&value, 0, sizeof(DBT));
 
@@ -74,19 +34,40 @@ int update_record( DB *db, struct keymon_event event )
 
     value.data = &rec;
     value.ulen = sizeof(struct keymon_record);
-    value.flags = DB_DBT_USERMEM;
+    value.flags = DB_DBT_USERMEM; // We provide own buffer to get/put data
 
-    rc = db->get(db, NULL, &key, &value, 0);
-    if(rc)
+    switch(action)
     {
-        return rc;
+        case REC_CHECK:
+            // Simply get record by event value
+            rc = db->get(db, NULL, &key, &value, 0);
+            break;
+
+        case REC_CREATE:
+            // Create new record with initial values from event
+            rec.keycode = event.value;
+            rec.hits    = event.down;
+            rc = db->put(db, NULL, &key, &value, 0);
+            break;
+
+        case REC_UPDATE:
+            // Get existing record
+            rc = db->get(db, NULL, &key, &value, 0);
+            if(rc)
+            {
+                printf("This is really strange if we are here...\n");
+                break;
+            }
+            printf("Got Keycode %d. Hits %d\n", rec.keycode, rec.hits);
+
+            // Update value pointed by DBT value. 
+            // This is why we need DB_DBT_USERMEM flag.
+            rec.hits++;
+
+            // Put updated value back
+            rc = db->put(db, NULL, &key, &value, 0);
+            break;
     }
-
-    printf("Got Keycode %d. Hits %d\n", rec.keycode, rec.hits);
-
-    rec.hits++;
-
-    rc = db->put(db, NULL, &key, &value, 0);
 
     return rc;
 }
@@ -99,14 +80,14 @@ void test_store(DB *db)
 
     for(i = 0; i < nevents; i++)
     {
-        rc = check_record(db, events[i]);
+        rc = rec(db, events[i], REC_CHECK);
         switch(rc)
         {
             case DB_NOTFOUND:
-                create_record(db, events[i]);
+                rec(db, events[i], REC_CREATE);
                 break;
             case 0:
-                update_record(db, events[i]);
+                rec(db, events[i], REC_UPDATE);
                 break;
             default:
                 printf("Key %d: %s\n", events[i].value, db_strerror(rc));
