@@ -1,9 +1,7 @@
-doc/
-old/
 tags
 *.swp
 *.swo
 worklog
 _*
-*.sublime-project
-*.sublime-workspace
+*.db
+
