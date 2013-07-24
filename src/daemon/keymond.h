@@ -34,6 +34,7 @@
 #include <netlink/genl/family.h>
 
 #include "../include/genl_def.h"
+#include "bdb.h"
 
 struct nl_sock *sk = NULL;
 

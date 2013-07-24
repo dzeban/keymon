@@ -38,9 +38,7 @@ int receiver(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nlh = NULL;
 	struct nlattr *attrs[ KEYMON_GENL_ATTR_MAX + 1 ];
-    static char buf[20];
-    static char hex[6];
-    int i = 0;
+    struct keymon_event event;
 
 	nlh = nlmsg_hdr( msg );
 	if( !nlh )
@@ -55,18 +53,13 @@ int receiver(struct nl_msg *msg, void *arg)
 		return NL_SKIP;
 	}
 
-    memset(buf, 0, 12);
-    for( i = KEYMON_GENL_ATTR_MIN; i <= KEYMON_GENL_ATTR_MAX; i++ )
-    {
-        if( attrs[ i ] )
-        {
-            // Print 2 hex digits into right place in buf
-            snprintf( hex, 6, "%c:%02X ", keymon_attrs_names[i-1], nla_get_u32( attrs[i] ) );
-		    strncat( buf, hex, 6 );
-        }
-    }
+    memset(&event, 0, sizeof(struct keymon_event));
+    
+    event.value = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_VALUE ] );
+    event.down  = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_DOWN  ] );
+    event.shift = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_SHIFT ] );
 
-    printf("%s\n", buf);
+    keymon_db_store( event );
 
 	return NL_OK;
 }
@@ -305,6 +298,12 @@ fail:
 /// * Waits for threads to stop.
 int main(int argc, const char *argv[])
 {
+    if( db_init() < 0 )
+    {
+        perror( "db_init" );
+        return EXIT_FAILURE;
+    }
+
 	if( nl_sock_init() < 0 )
 	{
 		perror( "nl_sock_init");

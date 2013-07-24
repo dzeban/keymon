@@ -1,24 +1,5 @@
 #include "bdb.h"
 
-struct keymon_event events[] = {
-    {22,1,0},
-    {22,2,0},
-    {22,2,0},
-    {22,2,0},
-    {22,2,0},
-    {22,2,0},
-    {22,2,0},
-    {15,1,0},
-    {63,1,0},
-    {11,1,0},
-    {63,1,0},
-    { 8,1,0},
-    {55,1,2},
-    {55,1,4},
-    {55,1,4},
-    {55,1,4},
-};
-
 int rec( DB *db, struct keymon_event event, enum rec_action action )
 {
     DBT key, value;
@@ -72,67 +53,67 @@ int rec( DB *db, struct keymon_event event, enum rec_action action )
     return rc;
 }
 
-void test_store(DB *db)
+void keymon_db_store( struct keymon_event event )
 {
-    int i = 0;
-    int rc = 0;
-    int nevents = sizeof(events) / sizeof(struct keymon_event);
-
-    for(i = 0; i < nevents; i++)
-    {
-        rc = rec(db, events[i], REC_CHECK);
-        switch(rc)
-        {
-            case DB_NOTFOUND:
-                rec(db, events[i], REC_CREATE);
-                break;
-            case 0:
-                rec(db, events[i], REC_UPDATE);
-                break;
-            default:
-                printf("Key %d: %s\n", events[i].value, db_strerror(rc));
-                break;
-        }
-    }
+/*
+ *    int i = 0;
+ *    int rc = 0;
+ *    int nevents = sizeof(events) / sizeof(struct keymon_event);
+ *
+ *    for(i = 0; i < nevents; i++)
+ *    {
+ *        rc = rec(db, events[i], REC_CHECK);
+ *        switch(rc)
+ *        {
+ *            case DB_NOTFOUND:
+ *                rec(db, events[i], REC_CREATE);
+ *                break;
+ *            case 0:
+ *                rec(db, events[i], REC_UPDATE);
+ *                break;
+ *            default:
+ *                printf("Key %d: %s\n", events[i].value, db_strerror(rc));
+ *                break;
+ *        }
+ *    }
+ */
     return;
 }
 
-int main(int argc, const char *argv[])
+void db_cleanup()
 {
-	DB *db_handle;
+	if( db )
+	{
+		db->close( db, 0 );
+	}
+	printf( "Successfully closed DB.\n" );
+}
 
-
+int db_init()
+{
 	int ret;
 
-	ret = db_create( &db_handle, NULL, 0 );
+	ret = db_create( &db, NULL, 0 );
 	if( ret )
 	{
 		printf( "Failed to get DB handle. %s\n", db_strerror( ret ) );
-		return EXIT_FAILURE;
+		return -1;
 	}
-	printf( "Got DB handle 0x%p\n", db_handle );
+	printf( "Got DB handle 0x%p\n", db );
 
-	ret = db_handle->open( db_handle,        // DB handle (you don't say?)
-	                       NULL,             // Transaction pointer
-	                       DB_FILENAME,      // DB file name on disk
-	                       NULL,             // Optional logical db name
-	                       DB_ACCESS_METHOD, // Predefined access method
-	                       DB_FLAGS,         // Flags to open DB
-	                       0);               // File mode (using defaults)
+	ret = db->open( db,               // DB handle (you don't say?)
+	                NULL,             // Transaction pointer
+	                DB_FILENAME,      // DB file name on disk
+	                NULL,             // Optional logical db name
+	                DB_ACCESS_METHOD, // Predefined access method
+	                DB_FLAGS,         // Flags to open DB
+	                0);               // File mode (using defaults)
 	if( ret )
 	{
 		printf( "Failed to open DB. %s\n", db_strerror( ret ) );
-		return EXIT_FAILURE;
+		return -1;
 	}
-	printf( "Successfully opened DB!\n" );
+	printf( "Successfully opened DB %s!\n", DB_FILENAME );
 
-    test_store(db_handle);
-
-	if( db_handle )
-	{
-		db_handle->close( db_handle, 0 );
-	}
-	printf( "Successfully closed DB.\n" );
-	
-	return EXIT_SUCCESS;
+	return 0;
 }
