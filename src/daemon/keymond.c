@@ -38,7 +38,7 @@ int receiver(struct nl_msg *msg, void *arg)
 {
 	struct nlmsghdr *nlh = NULL;
 	struct nlattr *attrs[ KEYMON_GENL_ATTR_MAX + 1 ];
-    struct keymon_event event;
+    static struct keymon_event event;
 
 	nlh = nlmsg_hdr( msg );
 	if( !nlh )
@@ -58,6 +58,8 @@ int receiver(struct nl_msg *msg, void *arg)
     event.value = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_VALUE ] );
     event.down  = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_DOWN  ] );
     event.shift = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_SHIFT ] );
+
+    printf("Storing keycode %d, down %d, shiftmask %d\n", event.value, event.down, event.shift);
 
     keymon_db_store( event );
 
@@ -306,7 +308,7 @@ int main(int argc, const char *argv[])
 
 	if( nl_sock_init() < 0 )
 	{
-		perror( "nl_sock_init");
+		perror( "nl_sock_init" );
 		return EXIT_FAILURE;
 	}
 
