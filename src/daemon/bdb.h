@@ -19,6 +19,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
  * USA.
  */
+#ifndef BDB_H
+#define BDB_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,3 +55,5 @@ enum rec_action
 
 int db_init();
 void keymon_db_store( struct keymon_event event );
+
+#endif // BDB_H

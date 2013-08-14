@@ -19,6 +19,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
  * USA.
  */
+#ifndef GENL_DEF_H
+#define GENL_DEF_H
 
 #define KEYMON_GENL_VERSION 1
 #define KEYMON_GENL_FAMILY_NAME "keymon"
@@ -74,4 +76,4 @@ struct nla_policy keymon_nla_policy[ KEYMON_GENL_ATTR_MAX + 1 ] = {
 	[ KEYMON_GENL_ATTR_KEY_LEDSTATE ] = { .type = NLA_U32 }
 };
 
-
+#endif // GENL_DEF_H

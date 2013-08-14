@@ -19,13 +19,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
  * USA.
  */
+#ifndef KEYMOND_H
+#define KEYMOND_H
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <error.h>
 #include <unistd.h>
-#include <pthread.h>
 
 #include <netlink/netlink.h>
 
@@ -34,12 +35,21 @@
 #include <netlink/genl/family.h>
 
 #include "../include/genl_def.h"
-#include "bdb.h"
 
-struct nl_sock *sk = NULL;
+#include <pthread.h>
+
+#include "bdb.h"
 
 pthread_t connector_thread;
 pthread_t receiver_thread;
 pthread_mutex_t sk_mutex;
 
-int keymon_mc_group_id = -1;
+int receiver(struct nl_msg *msg, void *arg);
+
+extern int keymon_mc_group_id;
+extern struct nl_sock *sk;
+
+extern void nl_sock_cleanup();
+extern int nl_sock_init();
+
+#endif // KEYMOND_H
