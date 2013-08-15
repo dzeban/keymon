@@ -20,10 +20,23 @@
  * USA.
  */
 
-#include "bdb.h"
+#include "db.h"
 
+// Handy macro to get value from DBT struct
 #define v(x) *(int *)x.data
 
+//==========================================================================
+//   rec
+//==========================================================================
+/// Does DB record stuff
+///
+/// @param db - DB handle
+/// @param event - event to log 
+/// @param action - action to do
+///
+/// Construct DBT structs and makes queries to DB depending on action
+///
+/// @return 0 on success, DB error otherwise
 int rec( DB *db, struct keymon_event event, enum rec_action action )
 {
     DBT key, value;
@@ -98,6 +111,17 @@ int rec( DB *db, struct keymon_event event, enum rec_action action )
     return rc;
 }
 
+//==========================================================================
+//   keymon_db_store
+//==========================================================================
+/// Store keymon event to DB
+///
+/// @param event - keymon event to store in DB
+///
+/// * Check whether event was ever logged
+/// * If it's event for new keycode - create new DB
+/// * Othrewise update existing record
+/// 
 void keymon_db_store( struct keymon_event event )
 {
     int rc = 0;
@@ -134,6 +158,13 @@ void db_cleanup()
 	printf( "Successfully closed DB.\n" );
 }
 
+
+//==========================================================================
+//   db_init
+//==========================================================================
+/// Initialize DB handle
+/// 
+/// @return 0 on success, -1 on error
 int db_init()
 {
 	int ret;

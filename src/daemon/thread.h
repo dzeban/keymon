@@ -20,37 +20,21 @@
  * USA.
  */
 
-#include "keymond.h"
+#ifndef THREAD_H
+#define THREAD_H
 
-//=========================================
-//      main
-//=========================================
-/// Keymond entry point.
-///
-/// * Does DB initialization.
-/// * Does netlink socket initialization.
-/// * Does threads configuration (run automatically).
-/// * Waits for threads to stop.
-int main(int argc, const char *argv[])
-{
-    if( db_init() < 0 )
-    {
-        perror( "db_init" );
-        return EXIT_FAILURE;
-    }
+#include <stdio.h>
+#include <unistd.h>
+#include <pthread.h>
 
-	if( nl_sock_init() < 0 )
-	{
-		perror( "nl_sock_init" );
-		return EXIT_FAILURE;
-	}
+pthread_t connector_thread;
+pthread_t receiver_thread;
+pthread_mutex_t sk_mutex;
 
-    if( thread_init() < 0 )
-    {
-        perror( "thread_init" );
-        return EXIT_FAILURE;
-    }
-    
-    pthread_exit( NULL );
-	return EXIT_SUCCESS;
-}
+int thread_init();
+
+extern void nl_sock_connect();
+extern void nl_sock_receive();
+extern void nl_sock_cleanup();
+
+#endif // THREAD_H

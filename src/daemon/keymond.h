@@ -22,34 +22,8 @@
 #ifndef KEYMOND_H
 #define KEYMOND_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <error.h>
-#include <unistd.h>
-
-#include <netlink/netlink.h>
-
-#include <netlink/genl/genl.h>
-#include <netlink/genl/ctrl.h>
-#include <netlink/genl/family.h>
-
-#include "../include/genl_def.h"
-
-#include <pthread.h>
-
-#include "bdb.h"
-
-pthread_t connector_thread;
-pthread_t receiver_thread;
-pthread_mutex_t sk_mutex;
-
-int receiver(struct nl_msg *msg, void *arg);
-
-extern int keymon_mc_group_id;
-extern struct nl_sock *sk;
-
-extern void nl_sock_cleanup();
-extern int nl_sock_init();
+#include "thread.h"
+#include "netlink.h"
+#include "db.h"
 
 #endif // KEYMOND_H
