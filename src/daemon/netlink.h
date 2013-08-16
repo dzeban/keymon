@@ -28,6 +28,7 @@
 #include <netlink/genl/genl.h>
 #include <netlink/genl/ctrl.h>
 #include <netlink/genl/family.h>
+#include <syslog.h>
 
 int nl_sock_init();
 void nl_sock_cleanup();

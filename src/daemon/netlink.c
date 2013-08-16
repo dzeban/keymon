@@ -48,13 +48,13 @@ int receiver(struct nl_msg *msg, void *arg)
 	nlh = nlmsg_hdr( msg );
 	if( !nlh )
 	{
-		printf( "Failed to get message header\n" );
+		syslog(LOG_ERR, "Failed to get message header\n");
 		return NL_SKIP;
 	}
 
 	if( genlmsg_parse(nlh, 0, attrs, KEYMON_GENL_ATTR_MAX, keymon_nla_policy ) < 0)
 	{
-		printf( "Failed to parse netlink message\n" );
+		syslog(LOG_ERR, "Failed to parse netlink message\n");
 		return NL_SKIP;
 	}
 
@@ -64,7 +64,7 @@ int receiver(struct nl_msg *msg, void *arg)
     event.down  = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_DOWN  ] );
     event.shift = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_SHIFT ] );
 
-    printf("Storing keycode %d, down %d, shiftmask %d\n", event.value, event.down, event.shift);
+    syslog(LOG_DEBUG, "Storing keycode %d, down %d, shiftmask %d\n", event.value, event.down, event.shift);
 
     keymon_db_store( event );
 
@@ -83,7 +83,7 @@ void nl_sock_receive()
     rc = nl_recvmsgs_default( sk );
     if( rc < 0 )
     {
-        error( 0, rc, "nl_recvmsgs_default failed" );
+        syslog(LOG_ERR, "nl_recvmsgs_default failed, rc %d\n", rc);
         keymon_mc_group_id = -1;
     }
 }
@@ -103,7 +103,7 @@ void nl_sock_connect()
             KEYMON_MC_GROUP_NAME );
     if ( keymon_mc_group_id < 0 )
     {
-        error( 0, keymon_mc_group_id, "genl_ctrl_resolve_grp failed" );
+        syslog(LOG_ERR, "genl_ctrl_resolve_grp failed, rc %d\n", keymon_mc_group_id);
         return;
     }
 
@@ -113,7 +113,7 @@ void nl_sock_connect()
     rc = nl_socket_add_memberships( sk, keymon_mc_group_id, 0 );
     if ( rc < 0 )
     {
-        error( 0, rc, "nl_socket_add_membership failed" );
+        syslog(LOG_ERR, "nl_socket_add_membership failed, rc %d\n", rc);
         keymon_mc_group_id = -1;
         return;
     }
@@ -157,11 +157,11 @@ int nl_sock_init()
 	sk = nl_socket_alloc();
 	if( !sk )
 	{
-		error( 0, 0, "nl_socket_alloc failed" );
+		syslog(LOG_ERR, "nl_socket_alloc failed\n" );
 		rc = -1;
 		goto fail;
 	}
-	printf( "Netlink socket allocated (%p)\n", sk );
+	syslog(LOG_INFO, "Netlink socket allocated (%p)\n", sk);
 
 	// Disable sequence number checking
 	nl_socket_disable_seq_check( sk );
@@ -174,7 +174,7 @@ int nl_sock_init()
 	rc = nl_socket_modify_cb( sk, NL_CB_VALID, NL_CB_CUSTOM, receiver, NULL );
 	if( rc < 0 )
 	{
-		error( 0, rc, "nl_cb_set failed");
+		syslog(LOG_ERR, "nl_cb_set failed, rc %d\n", rc);
 		rc = -1;
 		goto fail;
 	}
@@ -185,11 +185,11 @@ int nl_sock_init()
 	rc = genl_connect( sk );
 	if( rc < 0 )
 	{
-		error( 0, rc, "genl_connect failed" );
+		syslog(LOG_ERR, "genl_connect failed, rc %d\n", rc);
 		rc = -1;
 		goto fail;
 	}
-	printf( "Netlink socket connected \n" );
+	syslog(LOG_INFO, "Netlink socket connected\n");
 
 	// ------------------------------------- 
 	// Allocate libnl generic netlink cache
@@ -197,23 +197,12 @@ int nl_sock_init()
 	rc = genl_ctrl_alloc_cache( sk, &genl_cache );
 	if( rc < 0 )
 	{
-		error( 0, rc, "genl_ctrl_alloc_cache failed" );
+		syslog(LOG_ERR, "genl_ctrl_alloc_cache failed, rc %d\n", rc);
 		rc = -1;
 		goto fail;
 	}
-	printf( "genl_cache allocated (%p)\n", genl_cache );
+	syslog(LOG_INFO, "genl_cache allocated (%p)\n", genl_cache);
 	
-	// -----------------------------------
-    // Switch socket to non-blocking mode
-    // -----------------------------------
-	if( nl_socket_set_nonblocking( sk ) < 0 )
-	{
-		error( 0, 0, "nl_socket_set_nonblocking failed" );
-		rc = -1;
-		goto fail;
-	}
-	printf( "Netlink socket is set to non-blocking mode\n" );
-
 	return rc;
 
 fail:

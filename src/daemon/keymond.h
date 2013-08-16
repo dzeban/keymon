@@ -22,8 +22,14 @@
 #ifndef KEYMOND_H
 #define KEYMOND_H
 
+#include <syslog.h>
+
 #include "thread.h"
 #include "netlink.h"
 #include "db.h"
+
+#define SYSLOG_IDENT "keymon"
+#define SYSLOG_OPT   0
+#define SYSLOG_FACILITY LOG_DAEMON
 
 #endif // KEYMOND_H

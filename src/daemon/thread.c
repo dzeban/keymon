@@ -52,6 +52,7 @@ void *keymon_receive()
         nl_sock_receive();
         pthread_mutex_unlock( &sk_mutex );
     }
+    pthread_exit( NULL );
 }
 
 //==========================================================================
@@ -71,36 +72,39 @@ int thread_init()
     pthread_attr_t attr;
 
     rc = pthread_attr_init( &attr );
-    pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
+    pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_JOINABLE );
     
     pthread_mutex_init( &sk_mutex, NULL );
 
     if( rc < 0 )
     {
-        perror("pthread_attr_init");
+        syslog(LOG_ERR, "pthread_attr_init failed, rc %d\n", rc);
         goto fail;
     }
 
     rc = pthread_create( &connector_thread, &attr, keymon_connect, NULL );
     if( rc )
     {
-        perror("pthread_create");
+        syslog(LOG_ERR, "pthread_create for connector thread failed, rc %d\n", rc);
         goto fail;
     }
 
     rc = pthread_create( &receiver_thread, &attr, keymon_receive, NULL );
     if( rc )
     {
-        perror("pthread_create");
+        syslog(LOG_ERR, "pthread_create for receiver thread failed, rc %d\n", rc);
         goto fail;
     }
 
     rc = pthread_attr_destroy( &attr );
     if( rc )
     {
-        perror("pthread_attr_destroy");
+        syslog(LOG_ERR, "pthread_attr_destroy failed, rc %d\n", rc);
         goto fail;
     }
+    pthread_join(connector_thread, NULL);
+    pthread_join(receiver_thread, NULL); 
+
     return 0;
 
 fail:

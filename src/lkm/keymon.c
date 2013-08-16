@@ -50,11 +50,11 @@ static void keymon_send_notification( struct work_struct *work )
 	nf = container_of( work, struct keymon_notification, ws );
 	if( !nf )
 	{
-		km_log( "Failed to get work struct container.\n" );
+		km_log( KERN_ERR, "Failed to get work struct container.\n" );
 		return;
 	}
 
-	km_log("Down %d, shift %d, ledstate %d, value %u\n", 
+	km_log( KERN_DEBUG, "Down %d, shift %d, ledstate %d, value %u\n", 
 	nf->down, nf->shift, nf->ledstate, nf->value );
 
 	// ----------------------------------------------
@@ -63,7 +63,7 @@ static void keymon_send_notification( struct work_struct *work )
 	skb = genlmsg_new( NLMSG_GOODSIZE, GFP_KERNEL );
 	if( !skb )
 	{
-		km_log( "Failed to construct message\n" );
+		km_log( KERN_ERR, "Failed to construct message\n" );
 		goto out;
 	}
 
@@ -76,7 +76,7 @@ static void keymon_send_notification( struct work_struct *work )
 	                   );
 	if( !msg )
 	{
-		km_log( "Failed to create generic netlink message\n" );
+		km_log( KERN_ERR, "Failed to create generic netlink message\n" );
 		goto out;
 	}
 
@@ -99,11 +99,11 @@ static void keymon_send_notification( struct work_struct *work )
 	rc = genlmsg_multicast_allns( skb, 0, keymon_mc_group.id, GFP_KERNEL );
 
 	// If error - fail.
-	// ESRCH is forever alone case - no one is listening for our messages 
+	// ESRCH is "forever alone" case - no one is listening for our messages 
 	// and it's ok, since userspace daemon can be unloaded.
 	if( rc && rc != -ESRCH )
 	{
-		km_log( "Failed to send message. rc = %d\n", rc );
+		km_log( KERN_WARNING, "Failed to send message. rc = %d\n", rc );
 		goto out;
 	}
 
@@ -143,7 +143,7 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 
 	if( !param )
 	{
-		km_log("Bad keyboard notification\n");
+		km_log(KERN_WARN, "Bad keyboard notification\n");
 		return NOTIFY_BAD;
 	}
 
@@ -159,7 +159,7 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 	// "post keysym" event but we really don't care about it.
 	// 
 	// Each of this events (keycode, keysym, post_keysym) is send both on key
-	// down and key up. That's where we got 6 notifications and that's really
+	// down and key up. That's where we got 6 notifications which is really
 	// too many info.
 	//
 	// So here we will look only for keycodes of key down events. We don't need
@@ -189,7 +189,7 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 		nf = (struct keymon_notification *)kzalloc( sizeof(struct keymon_notification), GFP_ATOMIC );
 		if( !nf )
 		{
-			km_log( "Failed to submit notification to workqueue\n" );
+			km_log( KERN_WARN, "Failed to submit notification to workqueue\n" );
 			return NOTIFY_BAD; // FIXME: Does keyboard notifier cares about our problems?
 		}
 
@@ -242,7 +242,7 @@ static void cleanup(void)
 	rc = unregister_keyboard_notifier( &keymon_kb_nf );
 	if( rc != 0 )
 	{
-		km_log("Failed to unregister keyboard notifier. Error %d\n", rc);
+		km_log(KERN_ERR, "Failed to unregister keyboard notifier. Error %d\n", rc);
 	}
 
 	// -------------------
@@ -262,7 +262,7 @@ static void cleanup(void)
 		rc = genl_unregister_family( &keymon_genl_family );
 		if( rc != 0 )
 		{
-			km_log("Failed to unregister generic netlink family. Error %d\n", rc);
+			km_log(KERN_ERR, "Failed to unregister generic netlink family. Error %d\n", rc);
 		}
 	}
 
@@ -286,10 +286,10 @@ static int keymon_init(void)
                           keymon_genl_ops, ARRAY_SIZE(keymon_genl_ops) );
 	if( rc )
 	{
-		km_log( "Failed to register generic netlink family. Error %d\n", rc );
+		km_log( KERN_ERR, "Failed to register generic netlink family. Error %d\n", rc );
 		goto fail;
 	}
-	km_log( "Generic netlink family id = %d\n", keymon_genl_family.id );
+	km_log( KERN_INFO, "Generic netlink family id = %d\n", keymon_genl_family.id );
 
 	// ----------------------------------------------------
 	// Register multicast group for generic netlink family
@@ -297,7 +297,7 @@ static int keymon_init(void)
 	rc = genl_register_mc_group( &keymon_genl_family, &keymon_mc_group );
 	if( rc )
 	{
-		km_log( "Failed to register multicast group. Error %d\n", rc );
+		km_log( KERN_ERR, "Failed to register multicast group. Error %d\n", rc );
 		goto fail;
 	}
 
@@ -307,7 +307,7 @@ static int keymon_init(void)
 	keymon_wq = create_workqueue( KEYMON_WQ_NAME );
 	if( !keymon_wq )
 	{
-		km_log( "Failed to create workqueue.\n" );
+		km_log( KERN_ERR, "Failed to create workqueue.\n" );
 		goto fail;
 	}
 	
@@ -317,7 +317,7 @@ static int keymon_init(void)
 	rc = register_keyboard_notifier( &keymon_kb_nf );
 	if( rc )
 	{
-		km_log( "Failed to register keyboard notifier. Error %d\n", rc );
+		km_log( KERN_ERR, "Failed to register keyboard notifier. Error %d\n", rc );
 		goto fail;
 	}
 

@@ -33,21 +33,23 @@
 /// * Waits for threads to stop.
 int main(int argc, const char *argv[])
 {
+    openlog(SYSLOG_IDENT, SYSLOG_OPT, SYSLOG_FACILITY);
+
     if( db_init() < 0 )
     {
-        perror( "db_init" );
+        syslog(LOG_ERR, "db_init" );
         return EXIT_FAILURE;
     }
 
 	if( nl_sock_init() < 0 )
 	{
-		perror( "nl_sock_init" );
+		syslog(LOG_ERR, "nl_sock_init" );
 		return EXIT_FAILURE;
 	}
 
     if( thread_init() < 0 )
     {
-        perror( "thread_init" );
+        syslog(LOG_ERR, "thread_init" );
         return EXIT_FAILURE;
     }
     

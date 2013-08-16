@@ -5,7 +5,7 @@ CC=gcc
 # On Fedora it's not 'pkgconfig', it's pkg-config
 LIBNL_FLAGS= $(shell pkg-config --cflags --libs libnl-genl-3.0)
 LIBDB_FLAGS= -ldb
-CFLAGS= $(LIBNL_FLAGS) $(LIBDB_FLAGS) -I../include -Wall -lpthread
+CFLAGS= $(LIBNL_FLAGS) $(LIBDB_FLAGS) -I../include -Wall -pthread
 
 all: thread netlink db daemon
 	$(CC) $(CFLAGS) -o keymond keymond.o db.o netlink.o thread.o

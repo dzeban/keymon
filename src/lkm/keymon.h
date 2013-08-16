@@ -33,9 +33,9 @@
 
 #include <linux/hardirq.h>
 
-#include "../include/genl_def.h"
+#include "genl_def.h"
 
-#define km_log(fmt, args...) printk(KERN_DEBUG "Keymon: In %s:%d. " fmt, __FUNCTION__, __LINE__, ## args)
+#define km_log(level, fmt, args...) printk(level "Keymon: In %s:%d. " fmt, __FUNCTION__, __LINE__, ## args)
 
 // ---------------------------------------------------------------------------
 // Keymon work queue.

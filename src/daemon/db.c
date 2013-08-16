@@ -25,6 +25,8 @@
 // Handy macro to get value from DBT struct
 #define v(x) *(int *)x.data
 
+#define debug(fmt...) 
+
 //==========================================================================
 //   rec
 //==========================================================================
@@ -43,7 +45,7 @@ int rec( DB *db, struct keymon_event event, enum rec_action action )
     int k,v;
     int rc = 0;
 
-    printf("In rec. keycode %d, down %d, shiftmask %d\n", event.value, event.down, event.shift);
+    debug("In rec. keycode %d, down %d, shiftmask %d\n", event.value, event.down, event.shift);
 
     memset(&key,   0, sizeof(DBT));
     memset(&value, 0, sizeof(DBT));
@@ -60,45 +62,31 @@ int rec( DB *db, struct keymon_event event, enum rec_action action )
     switch(action)
     {
         case REC_CHECK: // Simply get record by event value
-
-            printf(":: Checking keycode %d\n", v(key));
-
             rc = db->get(db, NULL, &key, &value, 0);
-            if( rc != DB_NOTFOUND )
-            {
-                printf(":: Existing keycode %d, hits %d\n", v(key), v(value));
-            }
+            debug("Checked keycode %d, rc %d\n", v(key), rc);
             break;
 
         case REC_CREATE: // Create new record with initial values from event
-
-            printf("# Creating record for keycode %d, hits %d, rc %d\n", v(key), v(value), rc);
             rc = db->put(db, NULL, &key, &value, 0);
             rc = db->get(db, NULL, &key, &value, 0);
-            printf("# Created record keycode %d, hits %d, rc %d\n", v(key), v(value), rc);
-
+            debug("Created record keycode %d, hits %d, rc %d\n", v(key), v(value), rc);
             break;
 
         case REC_UPDATE: // Get existing record
-
-            printf("=> Updating keycode %d\n", v(key));
             rc = db->get(db, NULL, &key, &value, 0);
             if(rc)
             {
-                printf("This is really strange if we are here...\n");
+                debug("Updating not-existing keycode!\n");
                 break;
             }
-            printf("=> Got Keycode %d. Hits %d\n", v(key), v(value));
 
-            // Update value pointed by DBT value. 
-            // This is why we need DB_DBT_USERMEM flag.
-            (*(int *)value.data)++;
+            // Update value with "event.down" value
+            (*(int *)value.data) += v;
 
             // Put updated value back
             rc = db->put(db, NULL, &key, &value, 0);
 
-            rc = db->get(db, NULL, &key, &value, 0);
-            printf("=> Updated keycode %d, hits %d\n", v(key), v(value));
+            debug("Updated keycode %d, hits %d\n", v(key), v(value));
             break;
     }
 
@@ -107,7 +95,6 @@ int rec( DB *db, struct keymon_event event, enum rec_action action )
         printf( "Failed to sync db\n" );
     }
 
-    printf("\n");
     return rc;
 }
 
@@ -126,8 +113,6 @@ void keymon_db_store( struct keymon_event event )
 {
     int rc = 0;
 
-    printf("-----------------------\n");
-
     // First we make test query to check if we've already logged such event
     rc = rec(db, event, REC_CHECK);
 
@@ -142,10 +127,9 @@ void keymon_db_store( struct keymon_event event )
             rec(db, event, REC_UPDATE);
             break;
         default:
-            printf("Key %d: %s\n", event.value, db_strerror(rc));
+            syslog(LOG_ERR, "Failed to store key %d: %s\n", event.value, db_strerror(rc));
             break;
     }
-    printf("-----------------------\n");
     return;
 }
 
@@ -155,7 +139,7 @@ void db_cleanup()
 	{
 		db->close( db, 0 );
 	}
-	printf( "Successfully closed DB.\n" );
+	syslog(LOG_INFO, "Successfully closed DB.\n" );
 }
 
 
@@ -172,10 +156,10 @@ int db_init()
 	ret = db_create( &db, NULL, 0 );
 	if( ret )
 	{
-		printf( "Failed to get DB handle. %s\n", db_strerror( ret ) );
+		syslog(LOG_ERR, "Failed to get DB handle. %s\n", db_strerror( ret ) );
 		return -1;
 	}
-	printf( "Got DB handle 0x%p\n", db );
+	syslog(LOG_INFO, "Got DB handle 0x%p\n", db );
 
 	ret = db->open( db,               // DB handle (you don't say?)
 	                NULL,             // Transaction pointer
@@ -186,10 +170,10 @@ int db_init()
 	                0);               // File mode (using defaults)
 	if( ret )
 	{
-		printf( "Failed to open DB. %s\n", db_strerror( ret ) );
+		syslog(LOG_ERR, "Failed to open DB. %s\n", db_strerror( ret ) );
 		return -1;
 	}
-	printf( "Successfully opened DB %s!\n", DB_FILENAME );
+	syslog(LOG_INFO, "Successfully opened DB %s!\n", DB_FILENAME );
 
 	return 0;
 }
