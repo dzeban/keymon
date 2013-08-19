@@ -103,7 +103,7 @@ int thread_init()
         goto fail;
     }
     pthread_join(connector_thread, NULL);
-    pthread_join(receiver_thread, NULL); 
+    pthread_join(receiver_thread, NULL);
 
     return 0;
 

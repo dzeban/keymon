@@ -21,11 +21,10 @@
  */
 
 #include "db.h"
+#include "util.h"
 
 // Handy macro to get value from DBT struct
 #define v(x) *(int *)x.data
-
-#define debug(fmt...) 
 
 //==========================================================================
 //   rec
@@ -45,7 +44,7 @@ int rec( DB *db, struct keymon_event event, enum rec_action action )
     int k,v;
     int rc = 0;
 
-    debug("In rec. keycode %d, down %d, shiftmask %d\n", event.value, event.down, event.shift);
+    debug("In rec. keycode %d, down %d, shiftmask %d", event.value, event.down, event.shift);
 
     memset(&key,   0, sizeof(DBT));
     memset(&value, 0, sizeof(DBT));
@@ -63,20 +62,20 @@ int rec( DB *db, struct keymon_event event, enum rec_action action )
     {
         case REC_CHECK: // Simply get record by event value
             rc = db->get(db, NULL, &key, &value, 0);
-            debug("Checked keycode %d, rc %d\n", v(key), rc);
+            debug("Checked keycode %d, rc %d", v(key), rc);
             break;
 
         case REC_CREATE: // Create new record with initial values from event
             rc = db->put(db, NULL, &key, &value, 0);
             rc = db->get(db, NULL, &key, &value, 0);
-            debug("Created record keycode %d, hits %d, rc %d\n", v(key), v(value), rc);
+            debug("Created record keycode %d, hits %d, rc %d", v(key), v(value), rc);
             break;
 
         case REC_UPDATE: // Get existing record
             rc = db->get(db, NULL, &key, &value, 0);
             if(rc)
             {
-                debug("Updating not-existing keycode!\n");
+                debug("Updating not-existing keycode!");
                 break;
             }
 
@@ -86,13 +85,13 @@ int rec( DB *db, struct keymon_event event, enum rec_action action )
             // Put updated value back
             rc = db->put(db, NULL, &key, &value, 0);
 
-            debug("Updated keycode %d, hits %d\n", v(key), v(value));
+            debug("Updated keycode %d, hits %d", v(key), v(value));
             break;
     }
 
     if( db->sync(db,0) )
     {
-        printf( "Failed to sync db\n" );
+        syslog(LOG_WARNING, "Failed to sync db\n" );
     }
 
     return rc;

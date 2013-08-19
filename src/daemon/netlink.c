@@ -23,6 +23,7 @@
 #include "netlink.h"
 #include "genl_def.h"
 #include "db.h"
+#include "util.h"
 
 static struct nl_sock *sk = NULL;
 static int keymon_mc_group_id = -1;
@@ -64,7 +65,7 @@ int receiver(struct nl_msg *msg, void *arg)
     event.down  = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_DOWN  ] );
     event.shift = nla_get_u32( attrs[ KEYMON_GENL_ATTR_KEY_SHIFT ] );
 
-    syslog(LOG_DEBUG, "Storing keycode %d, down %d, shiftmask %d\n", event.value, event.down, event.shift);
+    debug("Storing keycode %d, down %d, shiftmask %d", event.value, event.down, event.shift);
 
     keymon_db_store( event );
 

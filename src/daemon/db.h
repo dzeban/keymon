@@ -36,13 +36,15 @@
 
 DB *db;
 
-struct keymon_event {
+struct keymon_event 
+{
     int value;
     int down;
     int shift;
 };
 
-struct keymon_record {
+struct keymon_record 
+{
     int keycode;
     int hits;
 };

@@ -1,6 +1,7 @@
 tags
 *.swp
 *.swo
-worklog
 _*
+*.o
+*.ko
 *.db

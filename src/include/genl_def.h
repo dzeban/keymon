@@ -32,7 +32,8 @@
 // First and last commands are special cases used for validation and must not be
 // changed. Don't change the order. New commands is added in between.
 // -----------------------------------------------------------------------------
-enum keymon_genl_commands {
+enum keymon_genl_commands 
+{
 	__KEYMON_GENL_CMD_UNSPEC = 0,
 
 	KEYMON_GENL_CMD_NOTIFY,   // Outcoming keyboard notify command
@@ -48,7 +49,8 @@ enum keymon_genl_commands {
 // be changed. Don't change the order. To add new attribute - insert in between 
 // and update keymon_nla_policy.
 // -----------------------------------------------------------------------------
-enum keymon_genl_attrs {
+enum keymon_genl_attrs 
+{
 	__KEYMON_GENL_ATTR_FIRST = 0,
 
 	// Notification struct content
@@ -68,7 +70,8 @@ const char keymon_attrs_names[KEYMON_GENL_ATTR_MAX] = { 'V', 'D', 'S', 'L' };
 // Attributes policy. 
 // This is used by generic netlink contoller to validate our attributes
 // -----------------------------------------------------------------------------
-struct nla_policy keymon_nla_policy[ KEYMON_GENL_ATTR_MAX + 1 ] = {
+struct nla_policy keymon_nla_policy[ KEYMON_GENL_ATTR_MAX + 1 ] = 
+{
 	// Notification struct content
 	[ KEYMON_GENL_ATTR_KEY_VALUE ]    = { .type = NLA_U32 },
 	[ KEYMON_GENL_ATTR_KEY_DOWN ]     = { .type = NLA_U32 },
