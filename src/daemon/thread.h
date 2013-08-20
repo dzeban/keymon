@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <syslog.h>
+#include <signal.h>
 
 pthread_t connector_thread;
 pthread_t receiver_thread;

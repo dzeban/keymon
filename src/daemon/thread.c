@@ -69,16 +69,25 @@ void *keymon_receive()
 int thread_init()
 {
     int rc = 0;
+    sigset_t sigset, oldset;
     pthread_attr_t attr;
 
     rc = pthread_attr_init( &attr );
+    if( rc < 0 )
+    {
+        syslog(LOG_ERR, "pthread_attr_init failed, rc %d\n", rc);
+        goto fail;
+    }
     pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_JOINABLE );
     
     pthread_mutex_init( &sk_mutex, NULL );
 
-    if( rc < 0 )
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGUSR1);
+    rc = pthread_sigmask(SIG_BLOCK, &sigset, &oldset);
+    if( rc )
     {
-        syslog(LOG_ERR, "pthread_attr_init failed, rc %d\n", rc);
+        syslog(LOG_ERR, "pthread_sigmask failed, rc %d\n", rc);
         goto fail;
     }
 
@@ -93,6 +102,13 @@ int thread_init()
     if( rc )
     {
         syslog(LOG_ERR, "pthread_create for receiver thread failed, rc %d\n", rc);
+        goto fail;
+    }
+
+    rc = pthread_sigmask(SIG_SETMASK, &oldset, NULL);
+    if( rc )
+    {
+        syslog(LOG_ERR, "pthread_sigmask failed, rc %d\n", rc);
         goto fail;
     }
 

@@ -151,6 +151,7 @@ void db_cleanup()
 int db_init()
 {
 	int ret;
+    KM_DBG = 0;
 
 	ret = db_create( &db, NULL, 0 );
 	if( ret )

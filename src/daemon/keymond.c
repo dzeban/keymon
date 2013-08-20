@@ -21,6 +21,20 @@
  */
 
 #include "keymond.h"
+#include "util.h"
+
+
+//=========================================
+//   signal_handler
+//=========================================
+///
+/// SIGUSR1: switch KM_DBG to enable/disable extensive debug logging
+/// 
+void signal_handler(int signo)
+{
+    KM_DBG = ~KM_DBG;
+    printf("Caught signal %d. KM_DBG %d\n", signo, KM_DBG);
+}
 
 //=========================================
 //      main
@@ -33,26 +47,56 @@
 /// * Waits for threads to stop.
 int main(int argc, const char *argv[])
 {
+    int rc = 0;
+
+    // -----------------------------
+    // Logging
+    // -----------------------------
     openlog(SYSLOG_IDENT, SYSLOG_OPT, SYSLOG_FACILITY);
 
+    // -----------------------------
+    // Signal handling
+    // -----------------------------
+    struct sigaction sa_act;
+    sa_act.sa_handler = signal_handler;
+
+    rc = sigaction(SIGUSR1, &sa_act, NULL);
+    if( rc )
+    {
+        syslog(LOG_WARNING, "sigaction");
+        return EXIT_FAILURE;
+    }
+
+    // -----------------------------
+    // Database initiatlization
+    // -----------------------------
     if( db_init() < 0 )
     {
         syslog(LOG_ERR, "db_init" );
         return EXIT_FAILURE;
     }
 
+    // -----------------------------
+    // Netlink initialization
+    // -----------------------------
 	if( nl_sock_init() < 0 )
 	{
 		syslog(LOG_ERR, "nl_sock_init" );
 		return EXIT_FAILURE;
 	}
 
+    // -----------------------------
+    // Thread initialization
+    // -----------------------------
     if( thread_init() < 0 )
     {
         syslog(LOG_ERR, "thread_init" );
         return EXIT_FAILURE;
     }
     
+    // -----------------------------
+    // Wait for threads to stop
+    // -----------------------------
     pthread_exit( NULL );
 	return EXIT_SUCCESS;
 }
