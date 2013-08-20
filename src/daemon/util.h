@@ -33,7 +33,7 @@ static inline void __debug(char *fmt, ...)
     va_list arg;
 
     va_start(arg, fmt);
-    vprintf(fmt, arg);
+    vsyslog(LOG_DEBUG, fmt, arg);
     va_end(arg);
 }
 
