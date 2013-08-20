@@ -86,6 +86,14 @@ int main(int argc, const char *argv[])
 	}
 
     // -----------------------------
+    // Daemonize!
+    // -----------------------------
+    // We do this after all initialization to allow opening local DB file, but 
+    // just before threading because threads are not inherited after 
+    // daemonization fork.
+    daemon(0,0);
+
+    // -----------------------------
     // Thread initialization
     // -----------------------------
     if( thread_init() < 0 )

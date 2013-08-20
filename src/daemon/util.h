@@ -23,8 +23,9 @@
 #define UTIL_H
 
 #include <stdarg.h>
+#include <signal.h>
 
-int KM_DBG;
+sig_atomic_t KM_DBG;
 
 #define debug(fmt, x...) if( KM_DBG ){ __debug(fmt"\n", ##x); }
 static inline void __debug(char *fmt, ...)
