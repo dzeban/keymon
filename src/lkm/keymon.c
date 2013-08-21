@@ -143,7 +143,7 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 
 	if( !param )
 	{
-		km_log(KERN_WARN, "Bad keyboard notification\n");
+		km_log(KERN_WARNING, "Bad keyboard notification\n");
 		return NOTIFY_BAD;
 	}
 
@@ -189,7 +189,7 @@ static int keymon_kb_nf_cb( struct notifier_block *nb, unsigned long code, void 
 		nf = (struct keymon_notification *)kzalloc( sizeof(struct keymon_notification), GFP_ATOMIC );
 		if( !nf )
 		{
-			km_log( KERN_WARN, "Failed to submit notification to workqueue\n" );
+			km_log( KERN_WARNING, "Failed to submit notification to workqueue\n" );
 			return NOTIFY_BAD; // FIXME: Does keyboard notifier cares about our problems?
 		}
 
